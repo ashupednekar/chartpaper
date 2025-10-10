@@ -14,10 +14,19 @@ export interface Chart {
   dependencies: Dependency[]
 }
 
+export interface ManifestMetadata {
+  imageTag: string
+  canaryTag: string
+  containerImages: string[]
+  ingressPaths: string[]
+  servicePorts: string[]
+}
+
 export interface ChartInfo {
   chart: Chart
   imageTag: string
   canaryTag: string
+  manifestMetadata?: ManifestMetadata
 }
 
 export interface Node {

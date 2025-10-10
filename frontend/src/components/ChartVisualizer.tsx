@@ -98,9 +98,9 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
         const depCount = chartInfo.chart.dependencies.length
         
         chartInfo.chart.dependencies.forEach((dep, depIndex) => {
-          // Circular positioning around parent
+          // Circular positioning around parent - moved further away
           const depAngle = (depIndex / depCount) * 2 * Math.PI - Math.PI / 2
-          const depRadius = Math.max(150, 100 + depCount * 10)
+          const depRadius = Math.max(250, 200 + depCount * 15)
           
           newNodes.push({
             id: `${chartInfo.chart.name}-${dep.name}`,
@@ -436,6 +436,12 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
                 {chart.chart.dependencies && chart.chart.dependencies.length > 0 && (
                   <div>{chart.chart.dependencies.length} dependencies</div>
                 )}
+                {chart.manifestMetadata?.containerImages && chart.manifestMetadata.containerImages.length > 0 && (
+                  <div>{chart.manifestMetadata.containerImages.length} container images</div>
+                )}
+                {chart.manifestMetadata?.ingressPaths && chart.manifestMetadata.ingressPaths.length > 0 && (
+                  <div>{chart.manifestMetadata.ingressPaths.length} ingress paths</div>
+                )}
               </div>
               
               <div className="flex gap-1 mt-2">
@@ -593,15 +599,100 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
                         </p>
                       )}
 
-                      <div className="flex gap-2 text-xs">
-                        <Badge variant={node.imageTag === 'N/A' ? 'destructive' : 'outline'} className="text-xs">
-                          {node.imageTag}
-                        </Badge>
-                        {node.canaryTag !== 'N/A' && (
-                          <Badge variant="secondary" className="text-xs">
-                            {node.canaryTag}
+                      <div className="space-y-2">
+                        {/* Main image tags */}
+                        <div className="flex gap-2 text-xs">
+                          <Badge variant={node.imageTag === 'N/A' ? 'destructive' : 'outline'} className="text-xs">
+                            {node.imageTag}
                           </Badge>
-                        )}
+                          {node.canaryTag !== 'N/A' && (
+                            <Badge variant="secondary" className="text-xs">
+                              {node.canaryTag}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Container images from manifest metadata */}
+                        {(() => {
+                          const chart = charts.find(c => c.chart.name === node.name)
+                          const metadata = chart?.manifestMetadata
+                          if (!metadata?.containerImages || metadata.containerImages.length === 0) return null
+                          
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground font-medium">Container Images:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {metadata.containerImages.map((image, idx) => {
+                                  // Extract just the image name and tag for display
+                                  const displayName = image.includes('/') 
+                                    ? image.split('/').pop() || image 
+                                    : image
+                                  
+                                  return (
+                                    <Badge 
+                                      key={idx} 
+                                      variant="outline" 
+                                      className="text-xs px-1 py-0 max-w-32 truncate" 
+                                      title={image}
+                                    >
+                                      {displayName}
+                                    </Badge>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                        
+                        {/* Ingress paths */}
+                        {(() => {
+                          const chart = charts.find(c => c.chart.name === node.name)
+                          const metadata = chart?.manifestMetadata
+                          if (!metadata?.ingressPaths || metadata.ingressPaths.length === 0) return null
+                          
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground font-medium">Ingress Paths:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {metadata.ingressPaths.slice(0, 3).map((path, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs px-1 py-0" title={path}>
+                                    {path}
+                                  </Badge>
+                                ))}
+                                {metadata.ingressPaths.length > 3 && (
+                                  <Badge variant="secondary" className="text-xs px-1 py-0">
+                                    +{metadata.ingressPaths.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                        
+                        {/* Service ports */}
+                        {(() => {
+                          const chart = charts.find(c => c.chart.name === node.name)
+                          const metadata = chart?.manifestMetadata
+                          if (!metadata?.servicePorts || metadata.servicePorts.length === 0) return null
+                          
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground font-medium">Service Ports:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {metadata.servicePorts.slice(0, 4).map((port, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
+                                    {port}
+                                  </Badge>
+                                ))}
+                                {metadata.servicePorts.length > 4 && (
+                                  <Badge variant="outline" className="text-xs px-1 py-0">
+                                    +{metadata.servicePorts.length - 4}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
 
                       {node.dependencies.length > 0 && (

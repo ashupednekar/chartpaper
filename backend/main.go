@@ -50,9 +50,10 @@ type CanaryConfig struct {
 }
 
 type ChartInfo struct {
-	Chart     Chart  `json:"chart"`
-	ImageTag  string `json:"imageTag"`
-	CanaryTag string `json:"canaryTag"`
+	Chart            Chart             `json:"chart"`
+	ImageTag         string            `json:"imageTag"`
+	CanaryTag        string            `json:"canaryTag"`
+	ManifestMetadata *ManifestMetadata `json:"manifestMetadata,omitempty"`
 }
 
 type DockerConfig struct {
@@ -226,6 +227,29 @@ func initDB() error {
 	} else {
 		fmt.Printf("Dependency tags support already exists\n")
 	}
+	
+	// Check if manifest metadata columns exist (migration check)
+	var manifestMetadataExists int
+	err = database.QueryRow("SELECT COUNT(*) FROM pragma_table_info('charts') WHERE name='ingress_paths'").Scan(&manifestMetadataExists)
+	if err != nil {
+		return fmt.Errorf("failed to check manifest metadata columns: %v", err)
+	}
+	
+	if manifestMetadataExists == 0 {
+		fmt.Printf("Running migration to add manifest metadata...\n")
+		migration, err := os.ReadFile("db/schema/003_add_manifest_metadata.sql")
+		if err != nil {
+			return fmt.Errorf("failed to read manifest metadata migration file: %v", err)
+		}
+
+		_, err = database.Exec(string(migration))
+		if err != nil {
+			return fmt.Errorf("failed to execute manifest metadata migration: %v", err)
+		}
+		fmt.Printf("Manifest metadata migration completed successfully\n")
+	} else {
+		fmt.Printf("Manifest metadata support already exists\n")
+	}
 
 	fmt.Printf("Database initialized successfully\n")
 	return nil
@@ -255,6 +279,14 @@ func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create chart: %v", err)
+		}
+		
+		// Update manifest metadata if available
+		if chartInfo.ManifestMetadata != nil {
+			err = updateChartManifestMetadata(storedChart.ID, *chartInfo.ManifestMetadata)
+			if err != nil {
+				fmt.Printf("⚠️  Warning: failed to update manifest metadata: %v\n", err)
+			}
 		}
 	} else {
 		// Chart exists, use the existing one
@@ -887,15 +919,18 @@ func safeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 		fmt.Printf("⚠️  No chart metadata found for %s\n", chartName)
 	}
 	
-	// Try to extract image tags from the manifest
+	// Try to extract metadata from the manifest
 	if rel.Manifest != "" {
-		imageTag, canaryTag := extractImageTagsFromManifest(rel.Manifest)
-		if imageTag != "" {
-			chartInfo.ImageTag = imageTag
+		metadata := extractManifestMetadata(rel.Manifest)
+		if metadata.ImageTag != "N/A" {
+			chartInfo.ImageTag = metadata.ImageTag
 		}
-		if canaryTag != "" {
-			chartInfo.CanaryTag = canaryTag
+		if metadata.CanaryTag != "N/A" {
+			chartInfo.CanaryTag = metadata.CanaryTag
 		}
+		
+		// Store manifest metadata for later database storage
+		chartInfo.ManifestMetadata = &metadata
 	}
 	
 	// Try to parse apps using the compose package, but catch panics
@@ -920,9 +955,22 @@ func safeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 	return chartInfo, apps, nil
 }
 
-func extractImageTagsFromManifest(manifest string) (string, string) {
-	imageTag := "N/A"
-	canaryTag := "N/A"
+type ManifestMetadata struct {
+	ImageTag       string   `json:"imageTag"`
+	CanaryTag      string   `json:"canaryTag"`
+	ContainerImages []string `json:"containerImages"`
+	IngressPaths   []string `json:"ingressPaths"`
+	ServicePorts   []string `json:"servicePorts"`
+}
+
+func extractManifestMetadata(manifest string) ManifestMetadata {
+	metadata := ManifestMetadata{
+		ImageTag:        "N/A",
+		CanaryTag:       "N/A",
+		ContainerImages: []string{},
+		IngressPaths:    []string{},
+		ServicePorts:    []string{},
+	}
 	
 	// Split manifest into resources
 	resources := strings.Split(manifest, "---")
@@ -933,39 +981,95 @@ func extractImageTagsFromManifest(manifest string) (string, string) {
 			continue
 		}
 		
-		// Look for image references
 		lines := strings.Split(resource, "\n")
+		var currentKind string
+		var inSpec, inIngress, inService bool
+		
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			
-			// Look for image: field
+			// Detect resource kind
+			if strings.HasPrefix(line, "kind:") {
+				parts := strings.Split(line, ":")
+				if len(parts) >= 2 {
+					currentKind = strings.TrimSpace(parts[1])
+					inIngress = currentKind == "Ingress"
+					inService = currentKind == "Service"
+				}
+			}
+			
+			// Track if we're in spec section
+			if strings.HasPrefix(line, "spec:") {
+				inSpec = true
+			}
+			
+			// Extract container images
 			if strings.Contains(line, "image:") && !strings.Contains(line, "imagePullPolicy") {
 				parts := strings.Split(line, ":")
-				if len(parts) >= 3 {
-					// Extract tag from image:repo:tag format
-					tag := strings.TrimSpace(parts[len(parts)-1])
-					tag = strings.Trim(tag, "\"'")
-					if imageTag == "N/A" {
-						imageTag = tag
+				if len(parts) >= 2 {
+					imageRef := strings.TrimSpace(strings.Join(parts[1:], ":"))
+					imageRef = strings.Trim(imageRef, "\"'")
+					
+					// Add to container images if not already present
+					found := false
+					for _, existing := range metadata.ContainerImages {
+						if existing == imageRef {
+							found = true
+							break
+						}
+					}
+					if !found && imageRef != "" {
+						metadata.ContainerImages = append(metadata.ContainerImages, imageRef)
+					}
+					
+					// Extract tag for primary image tag
+					if strings.Contains(imageRef, ":") {
+						tagParts := strings.Split(imageRef, ":")
+						tag := tagParts[len(tagParts)-1]
+						if metadata.ImageTag == "N/A" {
+							metadata.ImageTag = tag
+						}
+						
+						// Check for canary tags
+						if strings.Contains(strings.ToLower(tag), "canary") && metadata.CanaryTag == "N/A" {
+							metadata.CanaryTag = tag
+						}
 					}
 				}
 			}
 			
-			// Look for canary-related tags
-			if strings.Contains(strings.ToLower(line), "canary") && strings.Contains(line, ":") {
+			// Extract ingress paths
+			if inIngress && strings.Contains(line, "path:") {
 				parts := strings.Split(line, ":")
 				if len(parts) >= 2 {
-					tag := strings.TrimSpace(parts[len(parts)-1])
-					tag = strings.Trim(tag, "\"'")
-					if canaryTag == "N/A" {
-						canaryTag = tag
+					path := strings.TrimSpace(parts[1])
+					path = strings.Trim(path, "\"'")
+					if path != "" && path != "/" {
+						metadata.IngressPaths = append(metadata.IngressPaths, path)
+					}
+				}
+			}
+			
+			// Extract service ports
+			if inService && inSpec && strings.Contains(line, "port:") {
+				parts := strings.Split(line, ":")
+				if len(parts) >= 2 {
+					port := strings.TrimSpace(parts[1])
+					port = strings.Trim(port, "\"'")
+					if port != "" {
+						metadata.ServicePorts = append(metadata.ServicePorts, port)
 					}
 				}
 			}
 		}
 	}
 	
-	return imageTag, canaryTag
+	return metadata
+}
+
+func extractImageTagsFromManifest(manifest string) (string, string) {
+	metadata := extractManifestMetadata(manifest)
+	return metadata.ImageTag, metadata.CanaryTag
 }
 
 func testChart(c *gin.Context) {
@@ -1178,4 +1282,68 @@ func fetchChartDependenciesAdvanced(c *gin.Context) {
 		"newly_fetched": len(fetchedCharts),
 		"errors": errors,
 	})
+}
+
+// Update chart manifest metadata
+func updateChartManifestMetadata(chartID int64, metadata ManifestMetadata) error {
+	ctx := context.Background()
+	
+	// Convert arrays to JSON
+	containerImagesJSON, _ := json.Marshal(metadata.ContainerImages)
+	ingressPathsJSON, _ := json.Marshal(metadata.IngressPaths)
+	servicePortsJSON, _ := json.Marshal(metadata.ServicePorts)
+	
+	// Update the chart with manifest metadata
+	_, err := database.ExecContext(ctx, `
+		UPDATE charts 
+		SET ingress_paths = ?, 
+		    container_images = ?, 
+		    service_ports = ?,
+		    manifest_parsed_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, string(ingressPathsJSON), string(containerImagesJSON), string(servicePortsJSON), chartID)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update manifest metadata: %v", err)
+	}
+	
+	fmt.Printf("✅ Updated manifest metadata for chart ID %d\n", chartID)
+	return nil
+}
+
+// Get chart manifest metadata
+func getChartManifestMetadata(chartID int64) (*ManifestMetadata, error) {
+	ctx := context.Background()
+	
+	var ingressPathsJSON, containerImagesJSON, servicePortsJSON sql.NullString
+	err := database.QueryRowContext(ctx, `
+		SELECT ingress_paths, container_images, service_ports 
+		FROM charts 
+		WHERE id = ?
+	`, chartID).Scan(&ingressPathsJSON, &containerImagesJSON, &servicePortsJSON)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	metadata := &ManifestMetadata{
+		ContainerImages: []string{},
+		IngressPaths:    []string{},
+		ServicePorts:    []string{},
+	}
+	
+	// Parse JSON arrays
+	if ingressPathsJSON.Valid && ingressPathsJSON.String != "" {
+		json.Unmarshal([]byte(ingressPathsJSON.String), &metadata.IngressPaths)
+	}
+	
+	if containerImagesJSON.Valid && containerImagesJSON.String != "" {
+		json.Unmarshal([]byte(containerImagesJSON.String), &metadata.ContainerImages)
+	}
+	
+	if servicePortsJSON.Valid && servicePortsJSON.String != "" {
+		json.Unmarshal([]byte(servicePortsJSON.String), &metadata.ServicePorts)
+	}
+	
+	return metadata, nil
 }

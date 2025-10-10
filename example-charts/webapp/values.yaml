@@ -1,0 +1,25 @@
+image:
+  repository: myapp/webapp
+  tag: "v1.2.3"
+  pullPolicy: IfNotPresent
+
+canary:
+  enabled: true
+  tag: "v1.3.0-rc1"
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "secretpassword"
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false

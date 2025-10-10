@@ -1,0 +1,18 @@
+image:
+  repository: myapp/api-service
+  tag: "v2.1.0"
+  pullPolicy: IfNotPresent
+
+canary:
+  enabled: false
+  tag: "N/A"
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    rootPassword: "mongopassword"
+
+service:
+  type: ClusterIP
+  port: 8080
