@@ -145,23 +145,33 @@ export function RegistryManager() {
       const config = JSON.parse(configContent)
       const registries: Array<{ name: string; registry_url: string; username: string; password: string }> = []
       
-      // Docker Compose format
-      if (config.registries && Array.isArray(config.registries)) {
+      // Handle direct format like { "Username": "...", "Password": "...", "Registry": "..." }
+      if (config.Username && config.Password && config.Registry) {
+        registries.push({
+          name: config.Registry.replace('https://', '').replace('http://', ''),
+          registry_url: config.Registry.startsWith('http') ? config.Registry : `https://${config.Registry}`,
+          username: config.Username,
+          password: config.Password
+        })
+      }
+      // Docker Compose format with registries array
+      else if (config.registries && Array.isArray(config.registries)) {
         config.registries.forEach((reg: any) => {
           registries.push({
-            name: reg.name || reg.registry || 'unknown',
-            registry_url: reg.url || reg.registry_url || reg.endpoint,
-            username: reg.username || reg.user || '',
-            password: reg.password || reg.token || reg.auth || ''
+            name: reg.name || reg.registry || reg.Registry || 'unknown',
+            registry_url: reg.url || reg.registry_url || reg.endpoint || reg.Registry,
+            username: reg.username || reg.user || reg.Username || '',
+            password: reg.password || reg.token || reg.auth || reg.Password || ''
           })
         })
-      } else if (config.registry) {
-        // Single registry format
+      } 
+      // Single registry object format
+      else if (config.registry) {
         registries.push({
-          name: config.registry.name || 'custom-registry',
-          registry_url: config.registry.url || config.registry.endpoint,
-          username: config.registry.username || config.registry.user || '',
-          password: config.registry.password || config.registry.token || ''
+          name: config.registry.name || config.registry.Registry || 'custom-registry',
+          registry_url: config.registry.url || config.registry.endpoint || config.registry.Registry,
+          username: config.registry.username || config.registry.user || config.registry.Username || '',
+          password: config.registry.password || config.registry.token || config.registry.Password || ''
         })
       }
       return registries
@@ -328,16 +338,29 @@ export function RegistryManager() {
     setDragActive(false)
     
     const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+    
+    // Make sure the form is visible
+    setShowAddForm(true)
+    
     files.forEach(file => {
       if (file.type === 'application/json' || file.name.endsWith('.json')) {
         const reader = new FileReader()
         reader.onload = (event) => {
           const content = event.target?.result as string
           setConfigFileContent(content)
+          
           try {
+            console.log('Parsing config with format:', selectedFormat)
+            console.log('Config content:', content)
+            
             const parsedConfigs = parseConfigFile(content, selectedFormat)
+            console.log('Parsed configs:', parsedConfigs)
+            
             if (parsedConfigs.length > 0) {
               const firstConfig = parsedConfigs[0]
+              console.log('Setting form data:', firstConfig)
+              
               setFormData({
                 name: firstConfig.name,
                 registry_url: firstConfig.registry_url,
@@ -345,12 +368,20 @@ export function RegistryManager() {
                 password: firstConfig.password,
                 is_default: false
               })
+              
+              // Clear any previous errors
+              setError(null)
+            } else {
+              setError('No valid registry configurations found in the file')
             }
           } catch (err) {
+            console.error('Parse error:', err)
             setError((err as Error).message)
           }
         }
         reader.readAsText(file)
+      } else {
+        setError('Please upload a JSON file')
       }
     })
   }
@@ -358,14 +389,25 @@ export function RegistryManager() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Make sure the form is visible
+      setShowAddForm(true)
+      
       const reader = new FileReader()
       reader.onload = (event) => {
         const content = event.target?.result as string
         setConfigFileContent(content)
+        
         try {
+          console.log('File upload - Parsing config with format:', selectedFormat)
+          console.log('Config content:', content)
+          
           const parsedConfigs = parseConfigFile(content, selectedFormat)
+          console.log('Parsed configs:', parsedConfigs)
+          
           if (parsedConfigs.length > 0) {
             const firstConfig = parsedConfigs[0]
+            console.log('Setting form data:', firstConfig)
+            
             setFormData({
               name: firstConfig.name,
               registry_url: firstConfig.registry_url,
@@ -373,8 +415,14 @@ export function RegistryManager() {
               password: firstConfig.password,
               is_default: false
             })
+            
+            // Clear any previous errors
+            setError(null)
+          } else {
+            setError('No valid registry configurations found in the file')
           }
         } catch (err) {
+          console.error('Parse error:', err)
           setError((err as Error).message)
         }
       }
