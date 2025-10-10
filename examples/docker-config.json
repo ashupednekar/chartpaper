@@ -1,0 +1,5 @@
+{
+  "Username": "your-docker-username",
+  "Password": "your-docker-password-or-token",
+  "Registry": "https://registry-1.docker.io"
+}

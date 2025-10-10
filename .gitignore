@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+*/node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+*/logs/
+*/tmp/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# External repositories (should be submodules if needed)
+temp-compose/
+
+# Build artifacts
+backend/chart-paper
+backend/charts.db
+backend/tmp/
+backend/main
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.vite/
