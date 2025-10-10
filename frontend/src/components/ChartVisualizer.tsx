@@ -44,6 +44,9 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     isPanning: false
   })
 
+  // Sidebar visibility state
+  const [showAvailableCharts, setShowAvailableCharts] = useState(true)
+
   useEffect(() => {
     const newNodes: Node[] = []
     const newEdges: Edge[] = []
@@ -389,14 +392,26 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
   return (
     <div className="w-full h-full flex gap-4">
       {/* Chart List Sidebar */}
-      <div className="w-80 bg-card border border-border rounded-lg p-4 overflow-y-auto">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <Package className="h-4 w-4" />
-          Available Charts
-        </h3>
+      <div className={`${showAvailableCharts ? 'w-80' : 'w-auto'} bg-card border border-border rounded-lg p-4 overflow-y-auto transition-all duration-200`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Available Charts
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowAvailableCharts(!showAvailableCharts)}
+            className="h-6 w-6 p-0"
+            title={showAvailableCharts ? "Hide available charts" : "Show available charts"}
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showAvailableCharts ? '' : 'rotate-180'}`} />
+          </Button>
+        </div>
         
-        <div className="space-y-2">
-          {charts.map((chart) => (
+        {showAvailableCharts && (
+          <div className="space-y-2">
+            {charts.map((chart) => (
             <div
               key={chart.chart.name}
               className={`p-3 border rounded-lg transition-all ${
@@ -457,14 +472,15 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
             </div>
           ))}
           
-          {charts.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No charts available</p>
-              <p className="text-xs">Fetch some charts to get started</p>
-            </div>
-          )}
-        </div>
+            {charts.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No charts available</p>
+                <p className="text-xs">Fetch some charts to get started</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Canvas Area */}
