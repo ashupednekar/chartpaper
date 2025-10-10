@@ -165,26 +165,32 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
       const toNode = nodes.find(n => n.id === edge.to)
       
       if (fromNode && toNode) {
+        // Convert percentage-based positions to canvas coordinates
+        const fromX = (fromNode.x / 1200) * canvas.width
+        const fromY = (fromNode.y / 700) * canvas.height
+        const toX = (toNode.x / 1200) * canvas.width
+        const toY = (toNode.y / 700) * canvas.height
+        
         ctx.beginPath()
-        ctx.moveTo(fromNode.x, fromNode.y)
-        ctx.lineTo(toNode.x, toNode.y)
+        ctx.moveTo(fromX, fromY)
+        ctx.lineTo(toX, toY)
         ctx.strokeStyle = '#64748b'
         ctx.lineWidth = 2
         ctx.stroke()
 
         // Draw arrow
-        const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x)
+        const angle = Math.atan2(toY - fromY, toX - fromX)
         const arrowLength = 10
         ctx.beginPath()
-        ctx.moveTo(toNode.x, toNode.y)
+        ctx.moveTo(toX, toY)
         ctx.lineTo(
-          toNode.x - arrowLength * Math.cos(angle - Math.PI / 6),
-          toNode.y - arrowLength * Math.sin(angle - Math.PI / 6)
+          toX - arrowLength * Math.cos(angle - Math.PI / 6),
+          toY - arrowLength * Math.sin(angle - Math.PI / 6)
         )
-        ctx.moveTo(toNode.x, toNode.y)
+        ctx.moveTo(toX, toY)
         ctx.lineTo(
-          toNode.x - arrowLength * Math.cos(angle + Math.PI / 6),
-          toNode.y - arrowLength * Math.sin(angle + Math.PI / 6)
+          toX - arrowLength * Math.cos(angle + Math.PI / 6),
+          toY - arrowLength * Math.sin(angle + Math.PI / 6)
         )
         ctx.stroke()
       }
@@ -618,7 +624,12 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
             width={1200}
             height={700}
             className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ maxWidth: '100%', height: '100%' }}
+            style={{ 
+              maxWidth: '100%', 
+              height: '100%',
+              transform: `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`,
+              transformOrigin: 'center center'
+            }}
           />
           
           {/* Chart nodes as beautiful cards */}
