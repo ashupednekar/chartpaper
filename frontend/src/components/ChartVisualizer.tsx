@@ -317,11 +317,30 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault()
+    
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1
-    setViewState(prev => ({
-      ...prev,
-      scale: Math.max(0.1, Math.min(3, prev.scale * scaleFactor))
-    }))
+    const newScale = Math.max(0.1, Math.min(3, viewState.scale * scaleFactor))
+    
+    // Zoom towards mouse cursor
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    
+    // Calculate the point in the canvas that the mouse is over
+    const canvasX = (mouseX - viewState.offsetX) / viewState.scale
+    const canvasY = (mouseY - viewState.offsetY) / viewState.scale
+    
+    // Calculate new offset to keep the same point under the mouse
+    const newOffsetX = mouseX - canvasX * newScale
+    const newOffsetY = mouseY - canvasY * newScale
+    
+    setViewState({
+      offsetX: newOffsetX,
+      offsetY: newOffsetY,
+      scale: newScale
+    })
   }
 
   const zoomIn = () => {
@@ -357,10 +376,10 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     let minY = Infinity, maxY = -Infinity
 
     nodes.forEach(node => {
-      minX = Math.min(minX, node.x - 150) // Account for card width
-      maxX = Math.max(maxX, node.x + 150)
-      minY = Math.min(minY, node.y - 100) // Account for card height
-      maxY = Math.max(maxY, node.y + 100)
+      minX = Math.min(minX, node.x - 200) // Account for card width + margin
+      maxX = Math.max(maxX, node.x + 200)
+      minY = Math.min(minY, node.y - 150) // Account for card height + margin
+      maxY = Math.max(maxY, node.y + 150)
     })
 
     const containerRect = containerRef.current?.getBoundingClientRect()
@@ -371,10 +390,16 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     const containerWidth = containerRect.width
     const containerHeight = containerRect.height
 
+    // Prevent division by zero
+    if (contentWidth <= 0 || contentHeight <= 0) {
+      resetZoom()
+      return
+    }
+
     // Calculate scale to fit content with some padding
-    const scaleX = (containerWidth * 0.8) / contentWidth
-    const scaleY = (containerHeight * 0.8) / contentHeight
-    const scale = Math.min(scaleX, scaleY, 2) // Don't zoom in too much
+    const scaleX = (containerWidth * 0.9) / contentWidth
+    const scaleY = (containerHeight * 0.9) / contentHeight
+    const scale = Math.min(scaleX, scaleY, 1.5) // Don't zoom in too much
 
     // Calculate center offset
     const centerX = (minX + maxX) / 2
@@ -385,7 +410,7 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     setViewState({
       offsetX,
       offsetY,
-      scale: Math.max(0.1, scale)
+      scale: Math.max(0.1, Math.min(3, scale))
     })
   }
 
@@ -920,6 +945,15 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
               title="Fit to screen"
             >
               <Maximize2 className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={resetZoom}
+              className="w-8 h-8 p-0 bg-background shadow-lg"
+              title="Reset zoom (100%)"
+            >
+              <span className="text-xs font-bold">1:1</span>
             </Button>
             <div className="text-xs text-center text-muted-foreground bg-background/90 px-2 py-1 rounded border">
               {Math.round(viewState.scale * 100)}%
