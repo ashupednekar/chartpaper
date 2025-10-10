@@ -1386,12 +1386,22 @@ func getRegistryConfigs(c *gin.Context) {
 	var configs []RegistryConfig
 	for rows.Next() {
 		var config RegistryConfig
-		err := rows.Scan(&config.ID, &config.Name, &config.RegistryURL, &config.Username, 
-			&config.Password, &config.IsDefault, &config.CreatedAt, &config.UpdatedAt)
+		var username, password sql.NullString
+		err := rows.Scan(&config.ID, &config.Name, &config.RegistryURL, &username, 
+			&password, &config.IsDefault, &config.CreatedAt, &config.UpdatedAt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		
+		// Handle NULL values
+		if username.Valid {
+			config.Username = username.String
+		}
+		if password.Valid {
+			config.Password = password.String
+		}
+		
 		configs = append(configs, config)
 	}
 	
