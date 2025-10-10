@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChartInfo, Node, Edge } from '../types'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Package, Download, Plus, X, ChevronDown, History } from 'lucide-react'
+import { Package, Download, Plus, X, ChevronDown, History, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -320,8 +320,73 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1
     setViewState(prev => ({
       ...prev,
-      scale: Math.max(0.5, Math.min(2, prev.scale * scaleFactor))
+      scale: Math.max(0.1, Math.min(3, prev.scale * scaleFactor))
     }))
+  }
+
+  const zoomIn = () => {
+    setViewState(prev => ({
+      ...prev,
+      scale: Math.min(3, prev.scale * 1.2)
+    }))
+  }
+
+  const zoomOut = () => {
+    setViewState(prev => ({
+      ...prev,
+      scale: Math.max(0.1, prev.scale * 0.8)
+    }))
+  }
+
+  const resetZoom = () => {
+    setViewState({
+      offsetX: 0,
+      offsetY: 0,
+      scale: 1
+    })
+  }
+
+  const fitToScreen = () => {
+    if (nodes.length === 0) {
+      resetZoom()
+      return
+    }
+
+    // Calculate bounding box of all nodes
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
+
+    nodes.forEach(node => {
+      minX = Math.min(minX, node.x - 150) // Account for card width
+      maxX = Math.max(maxX, node.x + 150)
+      minY = Math.min(minY, node.y - 100) // Account for card height
+      maxY = Math.max(maxY, node.y + 100)
+    })
+
+    const containerRect = containerRef.current?.getBoundingClientRect()
+    if (!containerRect) return
+
+    const contentWidth = maxX - minX
+    const contentHeight = maxY - minY
+    const containerWidth = containerRect.width
+    const containerHeight = containerRect.height
+
+    // Calculate scale to fit content with some padding
+    const scaleX = (containerWidth * 0.8) / contentWidth
+    const scaleY = (containerHeight * 0.8) / contentHeight
+    const scale = Math.min(scaleX, scaleY, 2) // Don't zoom in too much
+
+    // Calculate center offset
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    const offsetX = containerWidth / 2 - centerX * scale
+    const offsetY = containerHeight / 2 - centerY * scale
+
+    setViewState({
+      offsetX,
+      offsetY,
+      scale: Math.max(0.1, scale)
+    })
   }
 
   const handleNodeDoubleClick = async (node: Node) => {
@@ -827,6 +892,40 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
             ))}
           </div>
           
+          {/* Zoom Controls */}
+          <div className="absolute top-4 right-4 flex flex-col gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={zoomIn}
+              className="w-8 h-8 p-0 bg-background shadow-lg"
+              title="Zoom in"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={zoomOut}
+              className="w-8 h-8 p-0 bg-background shadow-lg"
+              title="Zoom out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fitToScreen}
+              className="w-8 h-8 p-0 bg-background shadow-lg"
+              title="Fit to screen"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+            <div className="text-xs text-center text-muted-foreground bg-background/90 px-2 py-1 rounded border">
+              {Math.round(viewState.scale * 100)}%
+            </div>
+          </div>
+
           {/* Legend and Controls */}
           {canvasCharts.size > 0 && (
             <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-sm">
