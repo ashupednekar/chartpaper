@@ -64,19 +64,28 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
     
     // Create nodes for charts on canvas with smart positioning
     canvasChartsArray.forEach((chartInfo, index) => {
+      // Check if this node already exists and preserve its position
+      const existingNode = nodes.find(n => n.id === chartInfo.chart.name && n.isRoot)
       let x, y
       
-      if (canvasChartsArray.length === 1) {
-        // Single chart - center it
-        x = 600
-        y = 350
+      if (existingNode) {
+        // Preserve existing position
+        x = existingNode.x
+        y = existingNode.y
       } else {
-        // Multiple charts - grid layout
-        const cols = Math.ceil(Math.sqrt(canvasChartsArray.length))
-        const row = Math.floor(index / cols)
-        const col = index % cols
-        x = 200 + col * 400
-        y = 200 + row * 300
+        // Calculate new position for new nodes
+        if (canvasChartsArray.length === 1) {
+          // Single chart - center it
+          x = 600
+          y = 350
+        } else {
+          // Multiple charts - grid layout
+          const cols = Math.ceil(Math.sqrt(canvasChartsArray.length))
+          const row = Math.floor(index / cols)
+          const col = index % cols
+          x = 200 + col * 400
+          y = 200 + row * 300
+        }
       }
       
       newNodes.push({
@@ -101,19 +110,31 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
         const depCount = chartInfo.chart.dependencies.length
         
         chartInfo.chart.dependencies.forEach((dep, depIndex) => {
-          // Circular positioning around parent - moved further away
-          const depAngle = (depIndex / depCount) * 2 * Math.PI - Math.PI / 2
-          const depRadius = Math.max(250, 200 + depCount * 15)
+          const depId = `${chartInfo.chart.name}-${dep.name}`
+          const existingDepNode = nodes.find(n => n.id === depId)
+          
+          let depX, depY
+          if (existingDepNode) {
+            // Preserve existing position
+            depX = existingDepNode.x
+            depY = existingDepNode.y
+          } else {
+            // Calculate new position for new dependency nodes
+            const depAngle = (depIndex / depCount) * 2 * Math.PI - Math.PI / 2
+            const depRadius = Math.max(250, 200 + depCount * 15)
+            depX = centerX + Math.cos(depAngle) * depRadius
+            depY = centerY + Math.sin(depAngle) * depRadius
+          }
           
           newNodes.push({
-            id: `${chartInfo.chart.name}-${dep.name}`,
+            id: depId,
             name: dep.name,
             version: dep.version,
             type: 'library',
             imageTag: 'N/A',
             canaryTag: 'N/A',
-            x: centerX + Math.cos(depAngle) * depRadius,
-            y: centerY + Math.sin(depAngle) * depRadius,
+            x: depX,
+            y: depY,
             dependencies: [],
             expanded: false,
             isRoot: false
