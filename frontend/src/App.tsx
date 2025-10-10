@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChartVisualizer } from './components/ChartVisualizer'
 import { ChartList } from './components/ChartList'
 import { ChartFetcher } from './components/ChartFetcher'
+import { RegistryManager } from './components/RegistryManager'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
 import { Button } from './components/ui/button'
@@ -48,8 +49,9 @@ function App() {
 
         <Tabs defaultValue="charts" className="mt-6">
           <TabsList>
-            <TabsTrigger value="charts">Charts</TabsTrigger>
+            <TabsTrigger value="charts">Explore</TabsTrigger>
             <TabsTrigger value="fetch">Fetch from Registry</TabsTrigger>
+            <TabsTrigger value="registry">Registry Config</TabsTrigger>
           </TabsList>
           
           <TabsContent value="charts">
@@ -73,6 +75,10 @@ function App() {
                 setSelectedChart(chart)
               }}
             />
+          </TabsContent>
+          
+          <TabsContent value="registry">
+            <RegistryManager />
           </TabsContent>
         </Tabs>
       </div>

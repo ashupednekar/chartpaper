@@ -130,6 +130,14 @@ func main() {
 		api.POST("/authenticate", authenticate)
 		api.DELETE("/charts/:name", deleteChart)
 		api.DELETE("/charts/:name/versions/:version", deleteChartVersion)
+		
+		// Registry configuration endpoints
+		api.GET("/registry-configs", getRegistryConfigs)
+		api.POST("/registry-configs", createRegistryConfig)
+		api.PUT("/registry-configs/:id", updateRegistryConfig)
+		api.DELETE("/registry-configs/:id", deleteRegistryConfig)
+		api.POST("/registry-configs/:id/set-default", setDefaultRegistry)
+		
 		api.GET("/test", func(c *gin.Context) {
 			fmt.Printf("🚀 TEST ENDPOINT HIT - NEW CODE IS RUNNING!\n")
 			c.JSON(http.StatusOK, gin.H{
@@ -1346,4 +1354,151 @@ func getChartManifestMetadata(chartID int64) (*ManifestMetadata, error) {
 	}
 	
 	return metadata, nil
+}
+
+// Registry configuration struct
+type RegistryConfig struct {
+	ID          int64  `json:"id" db:"id"`
+	Name        string `json:"name" db:"name"`
+	RegistryURL string `json:"registry_url" db:"registry_url"`
+	Username    string `json:"username" db:"username"`
+	Password    string `json:"password" db:"password"`
+	IsDefault   bool   `json:"is_default" db:"is_default"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+	UpdatedAt   string `json:"updated_at" db:"updated_at"`
+}
+
+// Get all registry configurations
+func getRegistryConfigs(c *gin.Context) {
+	ctx := context.Background()
+	
+	rows, err := database.QueryContext(ctx, `
+		SELECT id, name, registry_url, username, password, is_default, created_at, updated_at 
+		FROM registry_configs 
+		ORDER BY is_default DESC, name ASC
+	`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	
+	var configs []RegistryConfig
+	for rows.Next() {
+		var config RegistryConfig
+		err := rows.Scan(&config.ID, &config.Name, &config.RegistryURL, &config.Username, 
+			&config.Password, &config.IsDefault, &config.CreatedAt, &config.UpdatedAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		configs = append(configs, config)
+	}
+	
+	c.JSON(http.StatusOK, configs)
+}
+
+// Create new registry configuration
+func createRegistryConfig(c *gin.Context) {
+	ctx := context.Background()
+	
+	var config RegistryConfig
+	if err := c.ShouldBindJSON(&config); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// If this is set as default, unset other defaults
+	if config.IsDefault {
+		_, err := database.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
+			return
+		}
+	}
+	
+	result, err := database.ExecContext(ctx, `
+		INSERT INTO registry_configs (name, registry_url, username, password, is_default) 
+		VALUES (?, ?, ?, ?, ?)
+	`, config.Name, config.RegistryURL, config.Username, config.Password, config.IsDefault)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	id, _ := result.LastInsertId()
+	config.ID = id
+	
+	c.JSON(http.StatusCreated, config)
+}
+
+// Update registry configuration
+func updateRegistryConfig(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+	
+	var config RegistryConfig
+	if err := c.ShouldBindJSON(&config); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// If this is set as default, unset other defaults
+	if config.IsDefault {
+		_, err := database.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE WHERE id != ?", id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
+			return
+		}
+	}
+	
+	_, err := database.ExecContext(ctx, `
+		UPDATE registry_configs 
+		SET name = ?, registry_url = ?, username = ?, password = ?, is_default = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, config.Name, config.RegistryURL, config.Username, config.Password, config.IsDefault, id)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, config)
+}
+
+// Delete registry configuration
+func deleteRegistryConfig(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+	
+	_, err := database.ExecContext(ctx, "DELETE FROM registry_configs WHERE id = ?", id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Registry configuration deleted"})
+}
+
+// Set registry as default
+func setDefaultRegistry(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+	
+	// Unset all defaults first
+	_, err := database.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
+		return
+	}
+	
+	// Set this one as default
+	_, err = database.ExecContext(ctx, "UPDATE registry_configs SET is_default = TRUE WHERE id = ?", id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Default registry updated"})
 }
