@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { ChartInfo, Node, Edge } from '../types'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Package, Download, Plus, X } from 'lucide-react'
+import { Package, Download, Plus, X, ChevronDown, History } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 
 interface ChartVisualizerProps {
   charts: ChartInfo[]
@@ -17,6 +23,8 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
   
   // Canvas state - charts that are placed on the canvas
   const [canvasCharts, setCanvasCharts] = useState<Set<string>>(new Set())
+  const [expandedCharts, setExpandedCharts] = useState<Set<string>>(new Set())
+  const [chartVersions, setChartVersions] = useState<Record<string, any[]>>({})
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   
@@ -78,14 +86,50 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
         x: x,
         y: y,
         dependencies: chartInfo.chart.dependencies?.map(d => d.name) || [],
-        expanded: false,
+        expanded: expandedCharts.has(chartInfo.chart.name),
         isRoot: true
       })
 
-      // Add dependency connections between charts on canvas
+      // If chart is expanded, add dependency nodes
+      if (expandedCharts.has(chartInfo.chart.name) && chartInfo.chart.dependencies) {
+        const parentNode = newNodes[newNodes.length - 1]
+        const centerX = parentNode.x
+        const centerY = parentNode.y
+        const depCount = chartInfo.chart.dependencies.length
+        
+        chartInfo.chart.dependencies.forEach((dep, depIndex) => {
+          // Circular positioning around parent
+          const depAngle = (depIndex / depCount) * 2 * Math.PI - Math.PI / 2
+          const depRadius = Math.max(150, 100 + depCount * 10)
+          
+          newNodes.push({
+            id: `${chartInfo.chart.name}-${dep.name}`,
+            name: dep.name,
+            version: dep.version,
+            type: 'library',
+            imageTag: 'N/A',
+            canaryTag: 'N/A',
+            x: centerX + Math.cos(depAngle) * depRadius,
+            y: centerY + Math.sin(depAngle) * depRadius,
+            dependencies: [],
+            expanded: false,
+            isRoot: false
+          })
+
+          // Create edge from parent to dependency
+          newEdges.push({
+            from: chartInfo.chart.name,
+            to: `${chartInfo.chart.name}-${dep.name}`,
+            version: dep.version,
+            repository: dep.repository
+          })
+        })
+      }
+
+      // Add dependency connections between root charts on canvas
       if (chartInfo.chart.dependencies) {
         chartInfo.chart.dependencies.forEach((dep) => {
-          // Check if the dependency is also on the canvas
+          // Check if the dependency is also on the canvas as a root chart
           if (canvasCharts.has(dep.name)) {
             newEdges.push({
               from: chartInfo.chart.name,
@@ -100,7 +144,7 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
 
     setNodes(newNodes)
     setEdges(newEdges)
-  }, [charts, canvasCharts])
+  }, [charts, canvasCharts, expandedCharts])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -156,11 +200,36 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
       newSet.delete(chartName)
       return newSet
     })
+    // Also remove from expanded when removed from canvas
+    setExpandedCharts(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(chartName)
+      return newSet
+    })
+  }
+
+  const toggleExpansion = (chartName: string) => {
+    setExpandedCharts(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(chartName)) {
+        newSet.delete(chartName)
+      } else {
+        newSet.add(chartName)
+      }
+      return newSet
+    })
   }
 
   const handleNodeClick = (node: Node) => {
-    const chart = charts.find(c => c.chart.name === node.id)
-    onChartSelect(chart || null)
+    if (node.isRoot) {
+      const chart = charts.find(c => c.chart.name === node.id)
+      onChartSelect(chart || null)
+    } else {
+      // Handle dependency node click - show parent chart details
+      const parentChartName = node.id.split('-')[0]
+      const chart = charts.find(c => c.chart.name === parentChartName)
+      onChartSelect(chart || null)
+    }
   }
 
   const handleMouseDown = (e: React.MouseEvent, node?: Node) => {
@@ -275,6 +344,43 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
       }
     } catch (error) {
       console.error('Error fetching dependencies:', error)
+    }
+  }
+
+  const loadChartVersions = async (chartName: string) => {
+    try {
+      const response = await fetch(`/api/charts/${chartName}/versions`)
+      if (response.ok) {
+        const result = await response.json()
+        setChartVersions(prev => ({
+          ...prev,
+          [chartName]: result.versions
+        }))
+      }
+    } catch (error) {
+      console.error('Error loading chart versions:', error)
+    }
+  }
+
+  const switchChartVersion = async (chartName: string, version: string) => {
+    try {
+      const response = await fetch(`/api/charts/${chartName}/switch-version`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ version })
+      })
+      
+      if (response.ok) {
+        console.log(`Switched ${chartName} to version ${version}`)
+        // Refresh the charts to show the new version
+        onFetchDependencies()
+      } else {
+        console.error('Failed to switch version')
+      }
+    } catch (error) {
+      console.error('Error switching version:', error)
     }
   }
 
@@ -419,66 +525,180 @@ export function ChartVisualizer({ charts, selectedChart, onChartSelect, onFetchD
                   bg-card border border-border rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 p-4
                   ${selectedChart?.chart.name === node.id ? 'ring-2 ring-primary border-primary' : 'hover:border-primary/50'}
                 `}>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Package className="h-4 w-4 text-primary flex-shrink-0" />
-                        <h3 className="font-semibold text-sm truncate">{node.name}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          v{node.version}
-                        </Badge>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeChartFromCanvas(node.name)
-                        }}
-                        className="h-6 w-6 p-0 flex-shrink-0"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    {charts.find(c => c.chart.name === node.name)?.chart.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {charts.find(c => c.chart.name === node.name)?.chart.description}
-                      </p>
-                    )}
-
-                    <div className="flex gap-2 text-xs">
-                      <Badge variant={node.imageTag === 'N/A' ? 'destructive' : 'outline'} className="text-xs">
-                        {node.imageTag}
-                      </Badge>
-                      {node.canaryTag !== 'N/A' && (
-                        <Badge variant="secondary" className="text-xs">
-                          {node.canaryTag}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {node.dependencies.length > 0 && (
+                  {node.isRoot ? (
+                    // Root chart node
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Package className="h-3 w-3" />
-                          <span>{node.dependencies.length} dependencies</span>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                          <h3 className="font-semibold text-sm truncate">{node.name}</h3>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-6 px-2 text-xs flex-shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  loadChartVersions(node.name)
+                                }}
+                              >
+                                v{node.version}
+                                <ChevronDown className="h-3 w-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {chartVersions[node.name]?.map((version: any) => (
+                                <DropdownMenuItem
+                                  key={version.version}
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation()
+                                    switchChartVersion(node.name, version.version)
+                                  }}
+                                  className={version.is_latest ? 'bg-primary/10' : ''}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>v{version.version}</span>
+                                    {version.is_latest && (
+                                      <Badge variant="secondary" className="text-xs ml-2">current</Badge>
+                                    )}
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                              {(!chartVersions[node.name] || chartVersions[node.name].length === 0) && (
+                                <DropdownMenuItem disabled>
+                                  <History className="h-3 w-3 mr-2" />
+                                  Loading versions...
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-6 text-xs px-2"
                           onClick={(e) => {
                             e.stopPropagation()
-                            fetchChartDependencies(node.name)
+                            removeChartFromCanvas(node.name)
+                          }}
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      {charts.find(c => c.chart.name === node.name)?.chart.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {charts.find(c => c.chart.name === node.name)?.chart.description}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 text-xs">
+                        <Badge variant={node.imageTag === 'N/A' ? 'destructive' : 'outline'} className="text-xs">
+                          {node.imageTag}
+                        </Badge>
+                        {node.canaryTag !== 'N/A' && (
+                          <Badge variant="secondary" className="text-xs">
+                            {node.canaryTag}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {node.dependencies.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Package className="h-3 w-3" />
+                              <span>{node.dependencies.length} dependencies</span>
+                            </div>
+                            <button
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                                node.expanded 
+                                  ? 'bg-primary text-primary-foreground' 
+                                  : 'bg-muted text-muted-foreground hover:bg-primary hover:text-primary-foreground'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleExpansion(node.id)
+                              }}
+                              title={node.expanded ? 'Collapse dependencies' : 'Expand dependencies'}
+                            >
+                              {node.expanded ? '−' : '+'}
+                            </button>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              fetchChartDependencies(node.name)
+                            }}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Fetch Deps
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // Dependency node - compact card
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        <h4 className="font-medium text-xs truncate">{node.name}</h4>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">v{node.version}</Badge>
+                      
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Repo:</span>
+                          <Badge variant="outline" className="text-xs px-1 py-0 truncate max-w-24" title={
+                            edges.find(e => e.to === node.id)?.repository || 'Unknown'
+                          }>
+                            {edges.find(e => e.to === node.id)?.repository?.split('/').pop() || 'Unknown'}
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-5 text-xs px-2"
+                          onClick={async (e: React.MouseEvent) => {
+                            e.stopPropagation()
+                            const edge = edges.find(e => e.to === node.id)
+                            if (edge?.repository) {
+                              const chartUrl = edge.repository.endsWith(`/${node.name}`) 
+                                ? edge.repository 
+                                : `${edge.repository}/${node.name}`
+                              
+                              try {
+                                const response = await fetch('/api/fetch-chart', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    chartUrl,
+                                    valuesPath: 'values',
+                                    setValues: [],
+                                    useHostNetwork: false,
+                                  }),
+                                })
+                                
+                                if (response.ok) {
+                                  console.log(`Fetched dependency: ${node.name}`)
+                                  onFetchDependencies()
+                                }
+                              } catch (error) {
+                                console.error('Error fetching dependency:', error)
+                              }
+                            }
                           }}
                         >
-                          <Download className="h-3 w-3 mr-1" />
+                          <Download className="h-2 w-2 mr-1" />
                           Fetch
                         </Button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
