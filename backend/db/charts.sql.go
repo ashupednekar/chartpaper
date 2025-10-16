@@ -14,12 +14,12 @@ const createApp = `-- name: CreateApp :one
 INSERT INTO apps (
     chart_id, name, image, app_type, ports, configs, mounts
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?
+    $1, $2, $3, $4, $5, $6, $7
 ) RETURNING id, chart_id, name, image, app_type, ports, configs, mounts, created_at
 `
 
 type CreateAppParams struct {
-	ChartID int64          `json:"chart_id"`
+	ChartID int32          `json:"chart_id"`
 	Name    string         `json:"name"`
 	Image   sql.NullString `json:"image"`
 	AppType sql.NullString `json:"app_type"`
@@ -57,8 +57,8 @@ const createChart = `-- name: CreateChart :one
 INSERT INTO charts (
     name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?
-) RETURNING id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at
 `
 
 type CreateChartParams struct {
@@ -99,6 +99,10 @@ func (q *Queries) CreateChart(ctx context.Context, arg CreateChartParams) (Chart
 		&i.IsLatest,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IngressPaths,
+		&i.ContainerImages,
+		&i.ServicePorts,
+		&i.ManifestParsedAt,
 	)
 	return i, err
 }
@@ -107,12 +111,12 @@ const createDependency = `-- name: CreateDependency :one
 INSERT INTO dependencies (
     chart_id, dependency_name, dependency_version, repository, condition_field
 ) VALUES (
-    ?, ?, ?, ?, ?
-) RETURNING id, chart_id, dependency_name, dependency_version, repository, condition_field, created_at
+    $1, $2, $3, $4, $5
+) RETURNING id, chart_id, dependency_name, dependency_version, repository, condition_field, image_tag, canary_tag, created_at
 `
 
 type CreateDependencyParams struct {
-	ChartID           int64          `json:"chart_id"`
+	ChartID           int32          `json:"chart_id"`
 	DependencyName    string         `json:"dependency_name"`
 	DependencyVersion string         `json:"dependency_version"`
 	Repository        sql.NullString `json:"repository"`
@@ -135,13 +139,15 @@ func (q *Queries) CreateDependency(ctx context.Context, arg CreateDependencyPara
 		&i.DependencyVersion,
 		&i.Repository,
 		&i.ConditionField,
+		&i.ImageTag,
+		&i.CanaryTag,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const deleteChart = `-- name: DeleteChart :exec
-DELETE FROM charts WHERE name = ?
+DELETE FROM charts WHERE name = $1
 `
 
 func (q *Queries) DeleteChart(ctx context.Context, name string) error {
@@ -150,25 +156,25 @@ func (q *Queries) DeleteChart(ctx context.Context, name string) error {
 }
 
 const deleteChartApps = `-- name: DeleteChartApps :exec
-DELETE FROM apps WHERE chart_id = ?
+DELETE FROM apps WHERE chart_id = $1
 `
 
-func (q *Queries) DeleteChartApps(ctx context.Context, chartID int64) error {
+func (q *Queries) DeleteChartApps(ctx context.Context, chartID int32) error {
 	_, err := q.db.ExecContext(ctx, deleteChartApps, chartID)
 	return err
 }
 
 const deleteChartDependencies = `-- name: DeleteChartDependencies :exec
-DELETE FROM dependencies WHERE chart_id = ?
+DELETE FROM dependencies WHERE chart_id = $1
 `
 
-func (q *Queries) DeleteChartDependencies(ctx context.Context, chartID int64) error {
+func (q *Queries) DeleteChartDependencies(ctx context.Context, chartID int32) error {
 	_, err := q.db.ExecContext(ctx, deleteChartDependencies, chartID)
 	return err
 }
 
 const deleteChartVersion = `-- name: DeleteChartVersion :exec
-DELETE FROM charts WHERE name = ? AND version = ?
+DELETE FROM charts WHERE name = $1 AND version = $2
 `
 
 type DeleteChartVersionParams struct {
@@ -185,7 +191,7 @@ const fetchChartDependencies = `-- name: FetchChartDependencies :many
 SELECT d.dependency_name, d.dependency_version, d.repository 
 FROM dependencies d
 JOIN charts c ON d.chart_id = c.id
-WHERE c.name = ? AND c.is_latest = TRUE
+WHERE c.name = $1 AND c.is_latest = TRUE
 `
 
 type FetchChartDependenciesRow struct {
@@ -218,7 +224,7 @@ func (q *Queries) FetchChartDependencies(ctx context.Context, name string) ([]Fe
 }
 
 const getChart = `-- name: GetChart :one
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts WHERE name = ? AND is_latest = TRUE LIMIT 1
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts WHERE name = $1 AND is_latest = TRUE LIMIT 1
 `
 
 func (q *Queries) GetChart(ctx context.Context, name string) (Chart, error) {
@@ -237,15 +243,19 @@ func (q *Queries) GetChart(ctx context.Context, name string) (Chart, error) {
 		&i.IsLatest,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IngressPaths,
+		&i.ContainerImages,
+		&i.ServicePorts,
+		&i.ManifestParsedAt,
 	)
 	return i, err
 }
 
 const getChartApps = `-- name: GetChartApps :many
-SELECT id, chart_id, name, image, app_type, ports, configs, mounts, created_at FROM apps WHERE chart_id = ?
+SELECT id, chart_id, name, image, app_type, ports, configs, mounts, created_at FROM apps WHERE chart_id = $1
 `
 
-func (q *Queries) GetChartApps(ctx context.Context, chartID int64) ([]App, error) {
+func (q *Queries) GetChartApps(ctx context.Context, chartID int32) ([]App, error) {
 	rows, err := q.db.QueryContext(ctx, getChartApps, chartID)
 	if err != nil {
 		return nil, err
@@ -279,10 +289,10 @@ func (q *Queries) GetChartApps(ctx context.Context, chartID int64) ([]App, error
 }
 
 const getChartByID = `-- name: GetChartByID :one
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts WHERE id = ? LIMIT 1
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetChartByID(ctx context.Context, id int64) (Chart, error) {
+func (q *Queries) GetChartByID(ctx context.Context, id int32) (Chart, error) {
 	row := q.db.QueryRowContext(ctx, getChartByID, id)
 	var i Chart
 	err := row.Scan(
@@ -298,28 +308,34 @@ func (q *Queries) GetChartByID(ctx context.Context, id int64) (Chart, error) {
 		&i.IsLatest,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IngressPaths,
+		&i.ContainerImages,
+		&i.ServicePorts,
+		&i.ManifestParsedAt,
 	)
 	return i, err
 }
 
 const getChartDependencies = `-- name: GetChartDependencies :many
-SELECT d.id, d.chart_id, d.dependency_name, d.dependency_version, d.repository, d.condition_field, d.created_at, c.name as chart_name FROM dependencies d
+SELECT d.id, d.chart_id, d.dependency_name, d.dependency_version, d.repository, d.condition_field, d.image_tag, d.canary_tag, d.created_at, c.name as chart_name FROM dependencies d
 JOIN charts c ON d.chart_id = c.id
-WHERE d.chart_id = ?
+WHERE d.chart_id = $1
 `
 
 type GetChartDependenciesRow struct {
-	ID                int64          `json:"id"`
-	ChartID           int64          `json:"chart_id"`
+	ID                int32          `json:"id"`
+	ChartID           int32          `json:"chart_id"`
 	DependencyName    string         `json:"dependency_name"`
 	DependencyVersion string         `json:"dependency_version"`
 	Repository        sql.NullString `json:"repository"`
 	ConditionField    sql.NullString `json:"condition_field"`
+	ImageTag          sql.NullString `json:"image_tag"`
+	CanaryTag         sql.NullString `json:"canary_tag"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
 	ChartName         string         `json:"chart_name"`
 }
 
-func (q *Queries) GetChartDependencies(ctx context.Context, chartID int64) ([]GetChartDependenciesRow, error) {
+func (q *Queries) GetChartDependencies(ctx context.Context, chartID int32) ([]GetChartDependenciesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getChartDependencies, chartID)
 	if err != nil {
 		return nil, err
@@ -335,6 +351,8 @@ func (q *Queries) GetChartDependencies(ctx context.Context, chartID int64) ([]Ge
 			&i.DependencyVersion,
 			&i.Repository,
 			&i.ConditionField,
+			&i.ImageTag,
+			&i.CanaryTag,
 			&i.CreatedAt,
 			&i.ChartName,
 		); err != nil {
@@ -352,7 +370,7 @@ func (q *Queries) GetChartDependencies(ctx context.Context, chartID int64) ([]Ge
 }
 
 const getChartVersion = `-- name: GetChartVersion :one
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts WHERE name = ? AND version = ? LIMIT 1
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts WHERE name = $1 AND version = $2 LIMIT 1
 `
 
 type GetChartVersionParams struct {
@@ -376,12 +394,16 @@ func (q *Queries) GetChartVersion(ctx context.Context, arg GetChartVersionParams
 		&i.IsLatest,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IngressPaths,
+		&i.ContainerImages,
+		&i.ServicePorts,
+		&i.ManifestParsedAt,
 	)
 	return i, err
 }
 
 const listChartVersions = `-- name: ListChartVersions :many
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts WHERE name = ? ORDER BY created_at DESC
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts WHERE name = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListChartVersions(ctx context.Context, name string) ([]Chart, error) {
@@ -406,6 +428,10 @@ func (q *Queries) ListChartVersions(ctx context.Context, name string) ([]Chart, 
 			&i.IsLatest,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IngressPaths,
+			&i.ContainerImages,
+			&i.ServicePorts,
+			&i.ManifestParsedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -421,7 +447,7 @@ func (q *Queries) ListChartVersions(ctx context.Context, name string) ([]Chart, 
 }
 
 const listCharts = `-- name: ListCharts :many
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts WHERE is_latest = TRUE ORDER BY updated_at DESC
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts WHERE is_latest = TRUE ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListCharts(ctx context.Context) ([]Chart, error) {
@@ -446,6 +472,10 @@ func (q *Queries) ListCharts(ctx context.Context) ([]Chart, error) {
 			&i.IsLatest,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IngressPaths,
+			&i.ContainerImages,
+			&i.ServicePorts,
+			&i.ManifestParsedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -461,8 +491,8 @@ func (q *Queries) ListCharts(ctx context.Context) ([]Chart, error) {
 }
 
 const searchCharts = `-- name: SearchCharts :many
-SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at FROM charts 
-WHERE name LIKE ? OR description LIKE ?
+SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at FROM charts 
+WHERE name LIKE $1 OR description LIKE $2
 ORDER BY updated_at DESC
 `
 
@@ -493,6 +523,10 @@ func (q *Queries) SearchCharts(ctx context.Context, arg SearchChartsParams) ([]C
 			&i.IsLatest,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IngressPaths,
+			&i.ContainerImages,
+			&i.ServicePorts,
+			&i.ManifestParsedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -508,7 +542,7 @@ func (q *Queries) SearchCharts(ctx context.Context, arg SearchChartsParams) ([]C
 }
 
 const setLatestVersion = `-- name: SetLatestVersion :exec
-UPDATE charts SET is_latest = FALSE WHERE name = ?
+UPDATE charts SET is_latest = FALSE WHERE name = $1
 `
 
 func (q *Queries) SetLatestVersion(ctx context.Context, name string) error {
@@ -517,7 +551,7 @@ func (q *Queries) SetLatestVersion(ctx context.Context, name string) error {
 }
 
 const setVersionAsLatest = `-- name: SetVersionAsLatest :exec
-UPDATE charts SET is_latest = TRUE WHERE name = ? AND version = ?
+UPDATE charts SET is_latest = TRUE WHERE name = $1 AND version = $2
 `
 
 type SetVersionAsLatestParams struct {
@@ -532,10 +566,10 @@ func (q *Queries) SetVersionAsLatest(ctx context.Context, arg SetVersionAsLatest
 
 const updateChart = `-- name: UpdateChart :one
 UPDATE charts 
-SET version = ?, description = ?, type = ?, chart_url = ?, 
-    image_tag = ?, canary_tag = ?, manifest = ?, updated_at = CURRENT_TIMESTAMP
-WHERE name = ? AND version = ?
-RETURNING id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at
+SET version = $1, description = $2, type = $3, chart_url = $4, 
+    image_tag = $5, canary_tag = $6, manifest = $7, updated_at = CURRENT_TIMESTAMP
+WHERE name = $8 AND version = $9
+RETURNING id, name, version, description, type, chart_url, image_tag, canary_tag, manifest, is_latest, created_at, updated_at, ingress_paths, container_images, service_ports, manifest_parsed_at
 `
 
 type UpdateChartParams struct {
@@ -576,6 +610,10 @@ func (q *Queries) UpdateChart(ctx context.Context, arg UpdateChartParams) (Chart
 		&i.IsLatest,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IngressPaths,
+		&i.ContainerImages,
+		&i.ServicePorts,
+		&i.ManifestParsedAt,
 	)
 	return i, err
 }

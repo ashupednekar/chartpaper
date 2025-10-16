@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"helm-visualizer/db"
+	"chartpaper/db"
 
 	"github.com/ashupednekar/compose/pkg/charts"
 	"github.com/ashupednekar/compose/pkg/spec"
@@ -85,8 +85,7 @@ func main() {
 	defer database.Close()
 
 	queries = db.New(database)
-	fmt.Printf("Database initialized and queries ready
-")
+	fmt.Printf("Database initialized and queries ready\n")
 
 	r := gin.Default()
 	
@@ -190,7 +189,7 @@ func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.
 		
 		// Update manifest metadata if available
 		if chartInfo.ManifestMetadata != nil {
-			err = updateChartManifestMetadata(storedChart.ID, *chartInfo.ManifestMetadata)
+			err = updateChartManifestMetadata(int64(storedChart.ID), *chartInfo.ManifestMetadata)
 			if err != nil {
 				fmt.Printf("⚠️  Warning: failed to update manifest metadata: %v\n", err)
 			}
@@ -201,7 +200,7 @@ func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.
 		storedChart = existingChart
 		
 		// Clear existing dependencies
-		queries.DeleteChartDependencies(ctx, storedChart.ID)
+		queries.DeleteChartDependencies(ctx, int32(storedChart.ID))
 	}
 	
 	fmt.Printf("🚀 REACHED DEPENDENCY STORAGE SECTION!\n")
@@ -236,7 +235,7 @@ func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.
 		
 		// For now, store dependency without tags until we can update the schema properly
 		depResult, err := queries.CreateDependency(ctx, db.CreateDependencyParams{
-			ChartID:           storedChart.ID,
+			ChartID:           int32(storedChart.ID),
 			DependencyName:    dep.Name,
 			DependencyVersion: dep.Version,
 			Repository:        sql.NullString{String: dep.Repository, Valid: dep.Repository != ""},
@@ -256,7 +255,7 @@ func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.
 		mountsJSON, _ := json.Marshal(app.Mounts)
 		
 		_, err = queries.CreateApp(ctx, db.CreateAppParams{
-			ChartID: storedChart.ID,
+			ChartID: int32(storedChart.ID),
 			Name:    app.Name,
 			Image:   sql.NullString{String: app.Image, Valid: app.Image != ""},
 			AppType: sql.NullString{String: app.Type, Valid: app.Type != ""},
@@ -307,7 +306,7 @@ func getStoredCharts(c *gin.Context) {
 		fmt.Printf("Processing chart %d: %s (v%s)\n", i+1, chart.Name, chart.Version)
 		
 		// Get dependencies for this chart
-		dependencies, err := queries.GetChartDependencies(ctx, chart.ID)
+		dependencies, err := queries.GetChartDependencies(ctx, int32(chart.ID))
 		if err != nil {
 			fmt.Printf("Warning: failed to get dependencies for %s: %v\n", chart.Name, err)
 			dependencies = []db.GetChartDependenciesRow{}
@@ -400,7 +399,7 @@ func getChartDependencies(c *gin.Context) {
 		return
 	}
 	
-	dependencies, err := queries.GetChartDependencies(ctx, chart.ID)
+	dependencies, err := queries.GetChartDependencies(ctx, int32(chart.ID))
 	if err != nil {
 		fmt.Printf("❌ Database error getting dependencies: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -489,7 +488,7 @@ func fetchChartDependencies(c *gin.Context) {
 	}
 	
 	// Get existing dependencies
-	dependencies, err := queries.GetChartDependencies(ctx, chart.ID)
+	dependencies, err := queries.GetChartDependencies(ctx, int32(chart.ID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1203,12 +1202,12 @@ func updateChartManifestMetadata(chartID int64, metadata ManifestMetadata) error
 	// Update the chart with manifest metadata
 	_, err := database.ExecContext(ctx, `
 		UPDATE charts 
-		SET ingress_paths = ?, 
-		    container_images = ?, 
-		    service_ports = ?,
+		SET ingress_paths = $1, 
+		    container_images = $2, 
+		    service_ports = $3,
 		    manifest_parsed_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, string(ingressPathsJSON), string(containerImagesJSON), string(servicePortsJSON), chartID)
+		WHERE id = $4
+	`, string(ingressPathsJSON), string(containerImagesJSON), string(servicePortsJSON), int32(chartID))
 	
 	if err != nil {
 		return fmt.Errorf("failed to update manifest metadata: %v", err)
@@ -1226,8 +1225,8 @@ func getChartManifestMetadata(chartID int64) (*ManifestMetadata, error) {
 	err := database.QueryRowContext(ctx, `
 		SELECT ingress_paths, container_images, service_ports 
 		FROM charts 
-		WHERE id = ?
-	`, chartID).Scan(&ingressPathsJSON, &containerImagesJSON, &servicePortsJSON)
+		WHERE id = $1
+	`, int32(chartID)).Scan(&ingressPathsJSON, &containerImagesJSON, &servicePortsJSON)
 	
 	if err != nil {
 		return nil, err
@@ -1328,7 +1327,7 @@ func createRegistryConfig(c *gin.Context) {
 	
 	result, err := database.ExecContext(ctx, `
 		INSERT INTO registry_configs (name, registry_url, username, password, is_default) 
-		VALUES (?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5)
 	`, config.Name, config.RegistryURL, config.Username, config.Password, config.IsDefault)
 	
 	if err != nil {
@@ -1355,7 +1354,7 @@ func updateRegistryConfig(c *gin.Context) {
 	
 	// If this is set as default, unset other defaults
 	if config.IsDefault {
-		_, err := database.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE WHERE id != ?", id)
+		_, err := database.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE WHERE id != $1", id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
 			return
@@ -1364,8 +1363,8 @@ func updateRegistryConfig(c *gin.Context) {
 	
 	_, err := database.ExecContext(ctx, `
 		UPDATE registry_configs 
-		SET name = ?, registry_url = ?, username = ?, password = ?, is_default = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
+		SET name = $1, registry_url = $2, username = $3, password = $4, is_default = $5, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $6
 	`, config.Name, config.RegistryURL, config.Username, config.Password, config.IsDefault, id)
 	
 	if err != nil {
@@ -1381,7 +1380,7 @@ func deleteRegistryConfig(c *gin.Context) {
 	ctx := context.Background()
 	id := c.Param("id")
 	
-	_, err := database.ExecContext(ctx, "DELETE FROM registry_configs WHERE id = ?", id)
+	_, err := database.ExecContext(ctx, "DELETE FROM registry_configs WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1403,7 +1402,7 @@ func setDefaultRegistry(c *gin.Context) {
 	}
 	
 	// Set this one as default
-	_, err = database.ExecContext(ctx, "UPDATE registry_configs SET is_default = TRUE WHERE id = ?", id)
+	_, err = database.ExecContext(ctx, "UPDATE registry_configs SET is_default = TRUE WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -9,8 +9,8 @@ import (
 )
 
 type App struct {
-	ID        int64          `json:"id"`
-	ChartID   int64          `json:"chart_id"`
+	ID        int32          `json:"id"`
+	ChartID   int32          `json:"chart_id"`
 	Name      string         `json:"name"`
 	Image     sql.NullString `json:"image"`
 	AppType   sql.NullString `json:"app_type"`
@@ -21,39 +21,43 @@ type App struct {
 }
 
 type Chart struct {
-	ID          int64          `json:"id"`
-	Name        string         `json:"name"`
-	Version     string         `json:"version"`
-	Description sql.NullString `json:"description"`
-	Type        string         `json:"type"`
-	ChartUrl    string         `json:"chart_url"`
-	ImageTag    sql.NullString `json:"image_tag"`
-	CanaryTag   sql.NullString `json:"canary_tag"`
-	Manifest    sql.NullString `json:"manifest"`
-	IsLatest    sql.NullBool   `json:"is_latest"`
-	CreatedAt   sql.NullTime   `json:"created_at"`
-	UpdatedAt   sql.NullTime   `json:"updated_at"`
-}
-
-type ChartVersion struct {
-	Name        string         `json:"name"`
-	Version     string         `json:"version"`
-	Description sql.NullString `json:"description"`
-	Type        string         `json:"type"`
-	ChartUrl    string         `json:"chart_url"`
-	ImageTag    sql.NullString `json:"image_tag"`
-	CanaryTag   sql.NullString `json:"canary_tag"`
-	IsLatest    sql.NullBool   `json:"is_latest"`
-	CreatedAt   sql.NullTime   `json:"created_at"`
-	UpdatedAt   sql.NullTime   `json:"updated_at"`
+	ID               int32          `json:"id"`
+	Name             string         `json:"name"`
+	Version          string         `json:"version"`
+	Description      sql.NullString `json:"description"`
+	Type             string         `json:"type"`
+	ChartUrl         string         `json:"chart_url"`
+	ImageTag         sql.NullString `json:"image_tag"`
+	CanaryTag        sql.NullString `json:"canary_tag"`
+	Manifest         sql.NullString `json:"manifest"`
+	IsLatest         sql.NullBool   `json:"is_latest"`
+	CreatedAt        sql.NullTime   `json:"created_at"`
+	UpdatedAt        sql.NullTime   `json:"updated_at"`
+	IngressPaths     sql.NullString `json:"ingress_paths"`
+	ContainerImages  sql.NullString `json:"container_images"`
+	ServicePorts     sql.NullString `json:"service_ports"`
+	ManifestParsedAt sql.NullTime   `json:"manifest_parsed_at"`
 }
 
 type Dependency struct {
-	ID                int64          `json:"id"`
-	ChartID           int64          `json:"chart_id"`
+	ID                int32          `json:"id"`
+	ChartID           int32          `json:"chart_id"`
 	DependencyName    string         `json:"dependency_name"`
 	DependencyVersion string         `json:"dependency_version"`
 	Repository        sql.NullString `json:"repository"`
 	ConditionField    sql.NullString `json:"condition_field"`
+	ImageTag          sql.NullString `json:"image_tag"`
+	CanaryTag         sql.NullString `json:"canary_tag"`
 	CreatedAt         sql.NullTime   `json:"created_at"`
+}
+
+type RegistryConfig struct {
+	ID          int32          `json:"id"`
+	Name        string         `json:"name"`
+	RegistryUrl string         `json:"registry_url"`
+	Username    sql.NullString `json:"username"`
+	Password    sql.NullString `json:"password"`
+	IsDefault   sql.NullBool   `json:"is_default"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
 }

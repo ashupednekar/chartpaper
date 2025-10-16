@@ -1,4 +1,4 @@
-module helm-visualizer
+module chartpaper
 
 go 1.24.4
 
