@@ -33,7 +33,7 @@ export function ChartFetcher({ onChartFetched }: ChartFetcherProps) {
     setError(null)
     
     try {
-      const response = await fetch('/api/authenticate', {
+      const response = await fetch('/chartpaper/api/authenticate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export function ChartFetcher({ onChartFetched }: ChartFetcherProps) {
         .map(line => line.trim())
         .filter(line => line.length > 0)
 
-      const response = await fetch('/api/fetch-chart', {
+      const response = await fetch('/chartpaper/api/fetch-chart', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

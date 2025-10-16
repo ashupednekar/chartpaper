@@ -1,18 +1,37 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:13
+    container_name: chartpaper-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=chartpaper
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - chartpaper-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d chartpaper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     image: ashupednekar535/chartpaper-server
     container_name: chartpaper-backend
     restart: unless-stopped
     ports:
       - "8000:8000"
-    volumes:
-      - chartpaper-data:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # For Docker registry access
+    depends_on:
+      - postgres
     environment:
       - GIN_MODE=release
-      - DB_PATH=/data/charts.db
+      - DATABASE_URL=postgres://user:password@postgres:5432/chartpaper?sslmode=disable
       - PORT=8000
     networks:
       - chartpaper-network
@@ -41,7 +60,7 @@ services:
       start_period: 40s
 
 volumes:
-  chartpaper-data:
+  postgres-data:
     driver: local
 
 networks:

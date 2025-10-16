@@ -16,7 +16,7 @@ import (
 	"github.com/ashupednekar/compose/pkg/spec"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	"helm.sh/helm/v3/pkg/release"
 )
 
@@ -78,19 +78,15 @@ func main() {
 	
 	// Initialize database
 	var err error
-	database, err = sql.Open("sqlite3", "./charts.db")
+	database, err = sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open database: %v", err))
 	}
 	defer database.Close()
 
-	// Initialize database schema
-	if err := initDB(); err != nil {
-		panic(fmt.Sprintf("Failed to initialize database: %v", err))
-	}
-
 	queries = db.New(database)
-	fmt.Printf("Database initialized and queries ready\n")
+	fmt.Printf("Database initialized and queries ready
+")
 
 	r := gin.Default()
 	
@@ -116,7 +112,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	api := r.Group("/api")
+	chartpaper := r.Group("/chartpaper")
+	api := chartpaper.Group("/api")
 	{
 		api.GET("/health", healthCheck)
 		api.GET("/charts", getStoredCharts)
@@ -163,105 +160,7 @@ func main() {
 	r.Run(":8000")
 }
 
-func initDB() error {
-	fmt.Printf("Initializing database...\n")
-	
-	// Check if tables already exist
-	var count int
-	err := database.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='charts'").Scan(&count)
-	if err != nil {
-		return fmt.Errorf("failed to check existing tables: %v", err)
-	}
-	
-	if count == 0 {
-		// Tables don't exist, create them
-		schema, err := os.ReadFile("db/schema/001_charts.sql")
-		if err != nil {
-			return fmt.Errorf("failed to read schema file: %v", err)
-		}
 
-		fmt.Printf("Executing database schema...\n")
-		_, err = database.Exec(string(schema))
-		if err != nil {
-			return fmt.Errorf("failed to execute schema: %v", err)
-		}
-		fmt.Printf("Database schema created successfully\n")
-	} else {
-		fmt.Printf("Database tables already exist\n")
-	}
-	
-	// Check if is_latest column exists (migration check)
-	var columnExists int
-	err = database.QueryRow("SELECT COUNT(*) FROM pragma_table_info('charts') WHERE name='is_latest'").Scan(&columnExists)
-	if err != nil {
-		return fmt.Errorf("failed to check is_latest column: %v", err)
-	}
-	
-	if columnExists == 0 {
-		fmt.Printf("Running migration to add version history support...\n")
-		migration, err := os.ReadFile("db/schema/002_add_version_history.sql")
-		if err != nil {
-			return fmt.Errorf("failed to read migration file: %v", err)
-		}
-
-		_, err = database.Exec(string(migration))
-		if err != nil {
-			return fmt.Errorf("failed to execute migration: %v", err)
-		}
-		fmt.Printf("Migration completed successfully\n")
-	} else {
-		fmt.Printf("Version history support already exists\n")
-	}
-	
-	// Check if dependency tags columns exist (migration check)
-	var depTagsExists int
-	err = database.QueryRow("SELECT COUNT(*) FROM pragma_table_info('dependencies') WHERE name='image_tag'").Scan(&depTagsExists)
-	if err != nil {
-		return fmt.Errorf("failed to check dependency tags columns: %v", err)
-	}
-	
-	if depTagsExists == 0 {
-		fmt.Printf("Running migration to add dependency tags...\n")
-		migration, err := os.ReadFile("db/schema/003_add_dependency_tags.sql")
-		if err != nil {
-			return fmt.Errorf("failed to read dependency tags migration file: %v", err)
-		}
-
-		_, err = database.Exec(string(migration))
-		if err != nil {
-			return fmt.Errorf("failed to execute dependency tags migration: %v", err)
-		}
-		fmt.Printf("Dependency tags migration completed successfully\n")
-	} else {
-		fmt.Printf("Dependency tags support already exists\n")
-	}
-	
-	// Check if manifest metadata columns exist (migration check)
-	var manifestMetadataExists int
-	err = database.QueryRow("SELECT COUNT(*) FROM pragma_table_info('charts') WHERE name='ingress_paths'").Scan(&manifestMetadataExists)
-	if err != nil {
-		return fmt.Errorf("failed to check manifest metadata columns: %v", err)
-	}
-	
-	if manifestMetadataExists == 0 {
-		fmt.Printf("Running migration to add manifest metadata...\n")
-		migration, err := os.ReadFile("db/schema/003_add_manifest_metadata.sql")
-		if err != nil {
-			return fmt.Errorf("failed to read manifest metadata migration file: %v", err)
-		}
-
-		_, err = database.Exec(string(migration))
-		if err != nil {
-			return fmt.Errorf("failed to execute manifest metadata migration: %v", err)
-		}
-		fmt.Printf("Manifest metadata migration completed successfully\n")
-	} else {
-		fmt.Printf("Manifest metadata support already exists\n")
-	}
-
-	fmt.Printf("Database initialized successfully\n")
-	return nil
-}
 
 func storeChartInDB(chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.Chart, error) {
 	ctx := context.Background()

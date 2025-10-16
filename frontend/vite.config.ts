@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  base: '/chartpaper/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -11,9 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
+      '/chartpaper/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/chartpaper\/api/, '/api'),
       },
     },
   },

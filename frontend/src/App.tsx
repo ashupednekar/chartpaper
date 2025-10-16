@@ -17,7 +17,7 @@ function App() {
   const fetchStoredCharts = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/charts')
+      const response = await fetch('/chartpaper/api/charts')
       const data = await response.json()
       console.log('Fetched stored charts:', data)
       // Ensure data is an array
