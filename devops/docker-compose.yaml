@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: ..
-      dockerfile: devops/Dockerfile.backend
+    image: ashupednekar535/chartpaper-server
     container_name: chartpaper-backend
     restart: unless-stopped
     ports:
@@ -26,9 +24,7 @@ services:
       start_period: 40s
 
   frontend:
-    build:
-      context: ..
-      dockerfile: devops/Dockerfile.frontend
+    image: ashupednekar535/chartpaper-ui
     container_name: chartpaper-frontend
     restart: unless-stopped
     ports:
