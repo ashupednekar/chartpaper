@@ -42,7 +42,7 @@ spec:
     - host: tools.ashudev.in
       http:
         paths:
-          - path: /chartpaper
+          - path: /chartpaper(/|$)(.*)
             pathType: Prefix
             backend:
               service:
