@@ -16,7 +16,7 @@ spec:
         app: chart-paper-ui
     spec:
       containers:
-      {{- $image := printf "%s/%s:%s" .Values.image.registry .Values.image.repository .Values.image.tag -}}
+      {{- $image := printf "%s/%s:%s" .Values.ui.image.registry .Values.ui.image.repository .Values.ui.image.tag -}}
       - image: {{$image}} 
         name: chartpaper-chart-paper-ui
         resources: {}

@@ -17,7 +17,7 @@ spec:
         app: chart-paper-server
     spec:
       containers:
-      {{- $image := printf "%s/%s:%s" .Values.image.registry .Values.image.repository .Values.image.tag -}}
+      {{- $image := printf "%s/%s:%s" .Values.server.image.registry .Values.server.image.repository .Values.server.image.tag -}}
       - image: {{$image}} 
         name: chartpaper-chart-paper-server
         env:
