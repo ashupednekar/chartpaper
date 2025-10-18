@@ -1,12 +1,12 @@
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: chartpaper-api-ingress
-  namespace: apps 
+  name: chartpaper-ingress
+  namespace: apps
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   tls:
     - hosts:
@@ -16,32 +16,13 @@ spec:
     - host: tools.ashudev.in
       http:
         paths:
-          - path: /chartpaper/api
+          - path: /chartpaper/api(/|$)(.*)
             pathType: Prefix
             backend:
               service:
                 name: chart-paper-server
                 port:
                   number: 8000
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: chartpaper-ui-ingress
-  namespace: apps
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  tls:
-    - hosts:
-        - tools.ashudev.in
-      secretName: tools-tls
-  rules:
-    - host: tools.ashudev.in
-      http:
-        paths:
           - path: /chartpaper(/|$)(.*)
             pathType: Prefix
             backend:
