@@ -10,7 +10,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
 FROM alpine:latest
 
@@ -20,13 +20,10 @@ WORKDIR /root/
 
 COPY --from=builder /app/main .
 
-COPY --from=builder /app/db ./db
-
 RUN mkdir -p /data
 
 EXPOSE 8000
 
 ENV GIN_MODE=release
-ENV DB_PATH=/data/charts.db
 
 CMD ["./main"]
