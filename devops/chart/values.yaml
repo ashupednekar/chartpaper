@@ -14,7 +14,7 @@ ui:
   image:
     registry: docker.io
     repository: ashupednekar535/chartpaper-ui
-    tag: 214cb4f
+    tag: 8278aab
   probes:
     enabled: false
 ingress:
