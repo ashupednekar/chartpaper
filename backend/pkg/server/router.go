@@ -5,10 +5,11 @@ import (
 )
 
 func (s *Server) buildRoutes() error{
+	s.engine.GET("/healthz", s.healthCheck)
+	s.engine.GET("/livez", s.livenessCheck)
   chartpaper := s.engine.Group("/chartpaper")
 	api := chartpaper.Group("/api")
 	{
-		api.GET("/health", s.healthCheck)
 		api.GET("/charts", s.getStoredCharts)
 		api.GET("/charts/:name", s.getStoredChartInfo)
 		api.GET("/charts/:name/versions", s.getChartVersions)

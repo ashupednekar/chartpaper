@@ -9,6 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+
+func (s *Server) livenessCheck(c *gin.Context) {
+}
+
 func (s *Server) healthCheck(c *gin.Context) {
 	queries := db.New(s.db)
 	log.Printf("GET /api/health - Health check requested\n")
