@@ -130,7 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes]
     if: |
-      needs.detect-changes.outputs.devops == 'true' || needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.output.frontend == 'true'
+      needs.detect-changes.outputs.devops == 'true' || (needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.output.frontend == 'true')
     env:
       BACKEND_IMAGE: ashupednekar535/chartpaper
       FRONTEND_IMAGE: ashupednekar535/chartpaper-ui
