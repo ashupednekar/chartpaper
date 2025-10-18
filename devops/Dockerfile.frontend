@@ -17,7 +17,6 @@ FROM openresty/openresty:alpine
 COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
 RUN mkdir -p /usr/local/openresty/nginx/html/chartpaper/
 COPY --from=builder /app/dist/ /usr/local/openresty/nginx/html/chartpaper/
-RUN ls /usr/share/nginx/html/chartpaper/
 
 EXPOSE 80
 
