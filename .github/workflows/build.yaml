@@ -45,7 +45,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true'
     env:
-      IMAGE_NAME: ashupednekar535/chartpaper
+      IMAGE_NAME: ashupednekar535/chartpaper-server
     outputs:
       sha_short: ${{ steps.vars.outputs.sha_short }}
     steps:
