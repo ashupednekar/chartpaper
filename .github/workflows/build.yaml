@@ -12,6 +12,7 @@ jobs:
     outputs:
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
+      devops: ${{ steps.changes.outputs.devops }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
