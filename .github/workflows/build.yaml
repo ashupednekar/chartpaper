@@ -143,8 +143,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GHCR_PAT }}
 
       - name: Extract short SHA
         id: vars
