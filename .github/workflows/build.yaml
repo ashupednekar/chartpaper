@@ -132,6 +132,7 @@ jobs:
     needs: []
     permissions:
       contents: write
+      packages: write
     if: true
     # if: |
     #   always() &&
