@@ -1,9 +1,9 @@
 server:
   replicas: 1
-  image: 
+  image:
     registry: docker.io
     repository: ashupednekar535/chartpaper-server
-    tag: latest
+    tag: 214cb4f
   db:
     secret: db-pguser-db
     key: pgbouncer-uri
@@ -11,10 +11,10 @@ server:
     enabled: false
 ui:
   replicas: 1
-  image: 
+  image:
     registry: docker.io
     repository: ashupednekar535/chartpaper-ui
-    tag: latest
+    tag: 214cb4f
   probes:
     enabled: false
 ingress:
