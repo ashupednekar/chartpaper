@@ -131,10 +131,10 @@ jobs:
     needs: [detect-changes, build-backend, build-frontend]
     if: |
       always() &&
-      needs.detect-changes.result == 'success' &&
-      (devops == 'true' ||
-       (needs.detect-changes.outputs.backend == 'true' && (needs.build-backend.result == 'success' || needs.build-backend.result == 'skipped')) ||
-       (needs.detect-changes.outputs.frontend == 'true' && (needs.build-frontend.result == 'success' || needs.build-frontend.result == 'skipped')))
+      (needs.detect-changes.outputs.devops == 'true' ||
+      (!contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (needs.detct-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true')))
     env:
       BACKEND_IMAGE: ashupednekar535/chartpaper
       FRONTEND_IMAGE: ashupednekar535/chartpaper-ui
