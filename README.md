@@ -1,3 +1,6 @@
+[![Build and Push Docker Images & Helm Chart](https://github.com/ashupednekar/chartpaper/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/ashupednekar/chartpaper/actions/workflows/build.yaml)
+> note: P.S. the 70% typescript is vibe-coded frontend code, otherwise... this is a go project
+
 # Chart Paper
 
 A tool to visualize Helm chart dependencies, library charts, and image versions in an interactive canvas.
