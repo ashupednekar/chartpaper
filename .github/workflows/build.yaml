@@ -22,13 +22,13 @@ jobs:
       - name: Detect changes
         id: changes
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -E '^devops/chart/$'; then
+          if git diff --name-only HEAD^ HEAD | grep -E '^devops/chart/'; then
             echo "devops=true" >> $GITHUB_OUTPUT
           else
             echo "devops=false" >> $GITHUB_OUTPUT
           fi
 
-          if git diff --name-only HEAD^ HEAD | grep -E '^backend/|^devops/Dockerfile$'; then
+          if git diff --name-only HEAD^ HEAD | grep -E '^backend/|^devops/Dockerfile.backend$'; then
             echo "backend=true" >> $GITHUB_OUTPUT
           else
             echo "backend=false" >> $GITHUB_OUTPUT
