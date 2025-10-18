@@ -216,3 +216,4 @@ jobs:
           echo "✅ Helm Chart version: ${{ env.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "✅ Helm Chart pushed to: oci://${{ env.GHCR_CHART_REPO }}" >> $GITHUB_STEP_SUMMARY
           echo "✅ Changes committed and pushed to repository" >> $GITHUB_STEP_SUMMARY
+
