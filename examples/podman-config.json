@@ -1,8 +1,0 @@
-{
-  "auths": {
-    "registry-1.docker.io": {
-      "username": "your-docker-username",
-      "password": "your-docker-password-or-token"
-    }
-  }
-}
