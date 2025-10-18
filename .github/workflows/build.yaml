@@ -1,4 +1,4 @@
-name: Build and Push Docker Images & Helm Chart
+name: chartpaper ci
 on:
   push:
     branches:
