@@ -20,9 +20,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: api
+                name: chart-paper-server
                 port:
-                  number: 80
+                  number: 8000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -46,7 +46,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: ui
+                name: chart-paper-ui
                 port:
                   number: 80
 
