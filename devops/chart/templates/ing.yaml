@@ -17,14 +17,14 @@ spec:
       http:
         paths:
           - path: /chartpaper/api(/|$)(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: chart-paper-server
                 port:
                   number: 8000
           - path: /chartpaper(/|$)(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: chart-paper-ui
