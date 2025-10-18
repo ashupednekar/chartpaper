@@ -1,3 +1,4 @@
+{{- $image := printf "%s/%s:%s" .Values.ui.image.registry .Values.ui.image.repository .Values.ui.image.tag -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -15,7 +16,6 @@ spec:
       labels:
         app: chart-paper-ui
     spec:
-      {{- $image := printf "%s/%s:%s" .Values.ui.image.registry .Values.ui.image.repository .Values.ui.image.tag -}}
       containers:
       - image: {{$image}} 
         name: chartpaper-chart-paper-ui
