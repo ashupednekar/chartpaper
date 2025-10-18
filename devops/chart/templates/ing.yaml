@@ -11,7 +11,7 @@ spec:
   tls:
     - hosts:
         - tools.ashudev.in
-      secretName: chartpaper-tls
+      secretName: tools-tls
   rules:
     - host: tools.ashudev.in
       http:
@@ -37,7 +37,7 @@ spec:
   tls:
     - hosts:
         - tools.ashudev.in
-      secretName: chartpaper-tls
+      secretName: tools-tls
   rules:
     - host: tools.ashudev.in
       http:
