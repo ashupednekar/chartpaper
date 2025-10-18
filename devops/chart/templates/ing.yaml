@@ -6,7 +6,6 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   tls:
     - hosts:
@@ -16,15 +15,15 @@ spec:
     - host: tools.ashudev.in
       http:
         paths:
-          - path: /chartpaper/api(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /chartpaper/api
+            pathType: Prefix 
             backend:
               service:
                 name: chart-paper-server
                 port:
                   number: 8000
-          - path: /chartpaper(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /chartpaper
+            pathType: Prefix 
             backend:
               service:
                 name: chart-paper-ui
