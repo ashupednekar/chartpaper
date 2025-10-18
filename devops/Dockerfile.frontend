@@ -16,6 +16,7 @@ FROM nginx:alpine
 
 RUN mkdir /usr/share/nginx/html/chartpaper
 COPY --from=builder /app/dist/* /usr/share/nginx/html/chartpaper/
+RUN ls /usr/share/nginx/html/chartpaper/
 
 EXPOSE 80
 
