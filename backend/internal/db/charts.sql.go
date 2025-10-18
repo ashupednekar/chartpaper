@@ -7,7 +7,8 @@ package db
 
 import (
 	"context"
-	"database/sql"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createApp = `-- name: CreateApp :one
@@ -19,17 +20,17 @@ INSERT INTO apps (
 `
 
 type CreateAppParams struct {
-	ChartID int32          `json:"chart_id"`
-	Name    string         `json:"name"`
-	Image   sql.NullString `json:"image"`
-	AppType sql.NullString `json:"app_type"`
-	Ports   sql.NullString `json:"ports"`
-	Configs sql.NullString `json:"configs"`
-	Mounts  sql.NullString `json:"mounts"`
+	ChartID int32       `json:"chart_id"`
+	Name    string      `json:"name"`
+	Image   pgtype.Text `json:"image"`
+	AppType pgtype.Text `json:"app_type"`
+	Ports   pgtype.Text `json:"ports"`
+	Configs pgtype.Text `json:"configs"`
+	Mounts  pgtype.Text `json:"mounts"`
 }
 
 func (q *Queries) CreateApp(ctx context.Context, arg CreateAppParams) (App, error) {
-	row := q.db.QueryRowContext(ctx, createApp,
+	row := q.db.QueryRow(ctx, createApp,
 		arg.ChartID,
 		arg.Name,
 		arg.Image,
@@ -62,19 +63,19 @@ INSERT INTO charts (
 `
 
 type CreateChartParams struct {
-	Name        string         `json:"name"`
-	Version     string         `json:"version"`
-	Description sql.NullString `json:"description"`
-	Type        string         `json:"type"`
-	ChartUrl    string         `json:"chart_url"`
-	ImageTag    sql.NullString `json:"image_tag"`
-	CanaryTag   sql.NullString `json:"canary_tag"`
-	Manifest    sql.NullString `json:"manifest"`
-	IsLatest    sql.NullBool   `json:"is_latest"`
+	Name        string      `json:"name"`
+	Version     string      `json:"version"`
+	Description pgtype.Text `json:"description"`
+	Type        string      `json:"type"`
+	ChartUrl    string      `json:"chart_url"`
+	ImageTag    pgtype.Text `json:"image_tag"`
+	CanaryTag   pgtype.Text `json:"canary_tag"`
+	Manifest    pgtype.Text `json:"manifest"`
+	IsLatest    pgtype.Bool `json:"is_latest"`
 }
 
 func (q *Queries) CreateChart(ctx context.Context, arg CreateChartParams) (Chart, error) {
-	row := q.db.QueryRowContext(ctx, createChart,
+	row := q.db.QueryRow(ctx, createChart,
 		arg.Name,
 		arg.Version,
 		arg.Description,
@@ -116,15 +117,15 @@ INSERT INTO dependencies (
 `
 
 type CreateDependencyParams struct {
-	ChartID           int32          `json:"chart_id"`
-	DependencyName    string         `json:"dependency_name"`
-	DependencyVersion string         `json:"dependency_version"`
-	Repository        sql.NullString `json:"repository"`
-	ConditionField    sql.NullString `json:"condition_field"`
+	ChartID           int32       `json:"chart_id"`
+	DependencyName    string      `json:"dependency_name"`
+	DependencyVersion string      `json:"dependency_version"`
+	Repository        pgtype.Text `json:"repository"`
+	ConditionField    pgtype.Text `json:"condition_field"`
 }
 
 func (q *Queries) CreateDependency(ctx context.Context, arg CreateDependencyParams) (Dependency, error) {
-	row := q.db.QueryRowContext(ctx, createDependency,
+	row := q.db.QueryRow(ctx, createDependency,
 		arg.ChartID,
 		arg.DependencyName,
 		arg.DependencyVersion,
@@ -151,7 +152,7 @@ DELETE FROM charts WHERE name = $1
 `
 
 func (q *Queries) DeleteChart(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, deleteChart, name)
+	_, err := q.db.Exec(ctx, deleteChart, name)
 	return err
 }
 
@@ -160,7 +161,7 @@ DELETE FROM apps WHERE chart_id = $1
 `
 
 func (q *Queries) DeleteChartApps(ctx context.Context, chartID int32) error {
-	_, err := q.db.ExecContext(ctx, deleteChartApps, chartID)
+	_, err := q.db.Exec(ctx, deleteChartApps, chartID)
 	return err
 }
 
@@ -169,7 +170,7 @@ DELETE FROM dependencies WHERE chart_id = $1
 `
 
 func (q *Queries) DeleteChartDependencies(ctx context.Context, chartID int32) error {
-	_, err := q.db.ExecContext(ctx, deleteChartDependencies, chartID)
+	_, err := q.db.Exec(ctx, deleteChartDependencies, chartID)
 	return err
 }
 
@@ -183,7 +184,7 @@ type DeleteChartVersionParams struct {
 }
 
 func (q *Queries) DeleteChartVersion(ctx context.Context, arg DeleteChartVersionParams) error {
-	_, err := q.db.ExecContext(ctx, deleteChartVersion, arg.Name, arg.Version)
+	_, err := q.db.Exec(ctx, deleteChartVersion, arg.Name, arg.Version)
 	return err
 }
 
@@ -195,13 +196,13 @@ WHERE c.name = $1 AND c.is_latest = TRUE
 `
 
 type FetchChartDependenciesRow struct {
-	DependencyName    string         `json:"dependency_name"`
-	DependencyVersion string         `json:"dependency_version"`
-	Repository        sql.NullString `json:"repository"`
+	DependencyName    string      `json:"dependency_name"`
+	DependencyVersion string      `json:"dependency_version"`
+	Repository        pgtype.Text `json:"repository"`
 }
 
 func (q *Queries) FetchChartDependencies(ctx context.Context, name string) ([]FetchChartDependenciesRow, error) {
-	rows, err := q.db.QueryContext(ctx, fetchChartDependencies, name)
+	rows, err := q.db.Query(ctx, fetchChartDependencies, name)
 	if err != nil {
 		return nil, err
 	}
@@ -214,9 +215,6 @@ func (q *Queries) FetchChartDependencies(ctx context.Context, name string) ([]Fe
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -228,7 +226,7 @@ SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, m
 `
 
 func (q *Queries) GetChart(ctx context.Context, name string) (Chart, error) {
-	row := q.db.QueryRowContext(ctx, getChart, name)
+	row := q.db.QueryRow(ctx, getChart, name)
 	var i Chart
 	err := row.Scan(
 		&i.ID,
@@ -256,7 +254,7 @@ SELECT id, chart_id, name, image, app_type, ports, configs, mounts, created_at F
 `
 
 func (q *Queries) GetChartApps(ctx context.Context, chartID int32) ([]App, error) {
-	rows, err := q.db.QueryContext(ctx, getChartApps, chartID)
+	rows, err := q.db.Query(ctx, getChartApps, chartID)
 	if err != nil {
 		return nil, err
 	}
@@ -279,9 +277,6 @@ func (q *Queries) GetChartApps(ctx context.Context, chartID int32) ([]App, error
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -293,7 +288,7 @@ SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, m
 `
 
 func (q *Queries) GetChartByID(ctx context.Context, id int32) (Chart, error) {
-	row := q.db.QueryRowContext(ctx, getChartByID, id)
+	row := q.db.QueryRow(ctx, getChartByID, id)
 	var i Chart
 	err := row.Scan(
 		&i.ID,
@@ -323,20 +318,20 @@ WHERE d.chart_id = $1
 `
 
 type GetChartDependenciesRow struct {
-	ID                int32          `json:"id"`
-	ChartID           int32          `json:"chart_id"`
-	DependencyName    string         `json:"dependency_name"`
-	DependencyVersion string         `json:"dependency_version"`
-	Repository        sql.NullString `json:"repository"`
-	ConditionField    sql.NullString `json:"condition_field"`
-	ImageTag          sql.NullString `json:"image_tag"`
-	CanaryTag         sql.NullString `json:"canary_tag"`
-	CreatedAt         sql.NullTime   `json:"created_at"`
-	ChartName         string         `json:"chart_name"`
+	ID                int32            `json:"id"`
+	ChartID           int32            `json:"chart_id"`
+	DependencyName    string           `json:"dependency_name"`
+	DependencyVersion string           `json:"dependency_version"`
+	Repository        pgtype.Text      `json:"repository"`
+	ConditionField    pgtype.Text      `json:"condition_field"`
+	ImageTag          pgtype.Text      `json:"image_tag"`
+	CanaryTag         pgtype.Text      `json:"canary_tag"`
+	CreatedAt         pgtype.Timestamp `json:"created_at"`
+	ChartName         string           `json:"chart_name"`
 }
 
 func (q *Queries) GetChartDependencies(ctx context.Context, chartID int32) ([]GetChartDependenciesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getChartDependencies, chartID)
+	rows, err := q.db.Query(ctx, getChartDependencies, chartID)
 	if err != nil {
 		return nil, err
 	}
@@ -360,9 +355,6 @@ func (q *Queries) GetChartDependencies(ctx context.Context, chartID int32) ([]Ge
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -379,7 +371,7 @@ type GetChartVersionParams struct {
 }
 
 func (q *Queries) GetChartVersion(ctx context.Context, arg GetChartVersionParams) (Chart, error) {
-	row := q.db.QueryRowContext(ctx, getChartVersion, arg.Name, arg.Version)
+	row := q.db.QueryRow(ctx, getChartVersion, arg.Name, arg.Version)
 	var i Chart
 	err := row.Scan(
 		&i.ID,
@@ -407,7 +399,7 @@ SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, m
 `
 
 func (q *Queries) ListChartVersions(ctx context.Context, name string) ([]Chart, error) {
-	rows, err := q.db.QueryContext(ctx, listChartVersions, name)
+	rows, err := q.db.Query(ctx, listChartVersions, name)
 	if err != nil {
 		return nil, err
 	}
@@ -436,9 +428,6 @@ func (q *Queries) ListChartVersions(ctx context.Context, name string) ([]Chart, 
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -451,7 +440,7 @@ SELECT id, name, version, description, type, chart_url, image_tag, canary_tag, m
 `
 
 func (q *Queries) ListCharts(ctx context.Context) ([]Chart, error) {
-	rows, err := q.db.QueryContext(ctx, listCharts)
+	rows, err := q.db.Query(ctx, listCharts)
 	if err != nil {
 		return nil, err
 	}
@@ -480,9 +469,6 @@ func (q *Queries) ListCharts(ctx context.Context) ([]Chart, error) {
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -497,12 +483,12 @@ ORDER BY updated_at DESC
 `
 
 type SearchChartsParams struct {
-	Name        string         `json:"name"`
-	Description sql.NullString `json:"description"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
 }
 
 func (q *Queries) SearchCharts(ctx context.Context, arg SearchChartsParams) ([]Chart, error) {
-	rows, err := q.db.QueryContext(ctx, searchCharts, arg.Name, arg.Description)
+	rows, err := q.db.Query(ctx, searchCharts, arg.Name, arg.Description)
 	if err != nil {
 		return nil, err
 	}
@@ -532,9 +518,6 @@ func (q *Queries) SearchCharts(ctx context.Context, arg SearchChartsParams) ([]C
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -546,7 +529,7 @@ UPDATE charts SET is_latest = FALSE WHERE name = $1
 `
 
 func (q *Queries) SetLatestVersion(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, setLatestVersion, name)
+	_, err := q.db.Exec(ctx, setLatestVersion, name)
 	return err
 }
 
@@ -560,7 +543,7 @@ type SetVersionAsLatestParams struct {
 }
 
 func (q *Queries) SetVersionAsLatest(ctx context.Context, arg SetVersionAsLatestParams) error {
-	_, err := q.db.ExecContext(ctx, setVersionAsLatest, arg.Name, arg.Version)
+	_, err := q.db.Exec(ctx, setVersionAsLatest, arg.Name, arg.Version)
 	return err
 }
 
@@ -573,19 +556,19 @@ RETURNING id, name, version, description, type, chart_url, image_tag, canary_tag
 `
 
 type UpdateChartParams struct {
-	Version     string         `json:"version"`
-	Description sql.NullString `json:"description"`
-	Type        string         `json:"type"`
-	ChartUrl    string         `json:"chart_url"`
-	ImageTag    sql.NullString `json:"image_tag"`
-	CanaryTag   sql.NullString `json:"canary_tag"`
-	Manifest    sql.NullString `json:"manifest"`
-	Name        string         `json:"name"`
-	Version_2   string         `json:"version_2"`
+	Version     string      `json:"version"`
+	Description pgtype.Text `json:"description"`
+	Type        string      `json:"type"`
+	ChartUrl    string      `json:"chart_url"`
+	ImageTag    pgtype.Text `json:"image_tag"`
+	CanaryTag   pgtype.Text `json:"canary_tag"`
+	Manifest    pgtype.Text `json:"manifest"`
+	Name        string      `json:"name"`
+	Version_2   string      `json:"version_2"`
 }
 
 func (q *Queries) UpdateChart(ctx context.Context, arg UpdateChartParams) (Chart, error) {
-	row := q.db.QueryRowContext(ctx, updateChart,
+	row := q.db.QueryRow(ctx, updateChart,
 		arg.Version,
 		arg.Description,
 		arg.Type,

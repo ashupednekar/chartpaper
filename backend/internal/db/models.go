@@ -5,59 +5,59 @@
 package db
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type App struct {
-	ID        int32          `json:"id"`
-	ChartID   int32          `json:"chart_id"`
-	Name      string         `json:"name"`
-	Image     sql.NullString `json:"image"`
-	AppType   sql.NullString `json:"app_type"`
-	Ports     sql.NullString `json:"ports"`
-	Configs   sql.NullString `json:"configs"`
-	Mounts    sql.NullString `json:"mounts"`
-	CreatedAt sql.NullTime   `json:"created_at"`
+	ID        int32            `json:"id"`
+	ChartID   int32            `json:"chart_id"`
+	Name      string           `json:"name"`
+	Image     pgtype.Text      `json:"image"`
+	AppType   pgtype.Text      `json:"app_type"`
+	Ports     pgtype.Text      `json:"ports"`
+	Configs   pgtype.Text      `json:"configs"`
+	Mounts    pgtype.Text      `json:"mounts"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
 }
 
 type Chart struct {
-	ID               int32          `json:"id"`
-	Name             string         `json:"name"`
-	Version          string         `json:"version"`
-	Description      sql.NullString `json:"description"`
-	Type             string         `json:"type"`
-	ChartUrl         string         `json:"chart_url"`
-	ImageTag         sql.NullString `json:"image_tag"`
-	CanaryTag        sql.NullString `json:"canary_tag"`
-	Manifest         sql.NullString `json:"manifest"`
-	IsLatest         sql.NullBool   `json:"is_latest"`
-	CreatedAt        sql.NullTime   `json:"created_at"`
-	UpdatedAt        sql.NullTime   `json:"updated_at"`
-	IngressPaths     sql.NullString `json:"ingress_paths"`
-	ContainerImages  sql.NullString `json:"container_images"`
-	ServicePorts     sql.NullString `json:"service_ports"`
-	ManifestParsedAt sql.NullTime   `json:"manifest_parsed_at"`
+	ID               int32            `json:"id"`
+	Name             string           `json:"name"`
+	Version          string           `json:"version"`
+	Description      pgtype.Text      `json:"description"`
+	Type             string           `json:"type"`
+	ChartUrl         string           `json:"chart_url"`
+	ImageTag         pgtype.Text      `json:"image_tag"`
+	CanaryTag        pgtype.Text      `json:"canary_tag"`
+	Manifest         pgtype.Text      `json:"manifest"`
+	IsLatest         pgtype.Bool      `json:"is_latest"`
+	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	UpdatedAt        pgtype.Timestamp `json:"updated_at"`
+	IngressPaths     pgtype.Text      `json:"ingress_paths"`
+	ContainerImages  pgtype.Text      `json:"container_images"`
+	ServicePorts     pgtype.Text      `json:"service_ports"`
+	ManifestParsedAt pgtype.Timestamp `json:"manifest_parsed_at"`
 }
 
 type Dependency struct {
-	ID                int32          `json:"id"`
-	ChartID           int32          `json:"chart_id"`
-	DependencyName    string         `json:"dependency_name"`
-	DependencyVersion string         `json:"dependency_version"`
-	Repository        sql.NullString `json:"repository"`
-	ConditionField    sql.NullString `json:"condition_field"`
-	ImageTag          sql.NullString `json:"image_tag"`
-	CanaryTag         sql.NullString `json:"canary_tag"`
-	CreatedAt         sql.NullTime   `json:"created_at"`
+	ID                int32            `json:"id"`
+	ChartID           int32            `json:"chart_id"`
+	DependencyName    string           `json:"dependency_name"`
+	DependencyVersion string           `json:"dependency_version"`
+	Repository        pgtype.Text      `json:"repository"`
+	ConditionField    pgtype.Text      `json:"condition_field"`
+	ImageTag          pgtype.Text      `json:"image_tag"`
+	CanaryTag         pgtype.Text      `json:"canary_tag"`
+	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 
 type RegistryConfig struct {
-	ID          int32          `json:"id"`
-	Name        string         `json:"name"`
-	RegistryUrl string         `json:"registry_url"`
-	Username    sql.NullString `json:"username"`
-	Password    sql.NullString `json:"password"`
-	IsDefault   sql.NullBool   `json:"is_default"`
-	CreatedAt   sql.NullTime   `json:"created_at"`
-	UpdatedAt   sql.NullTime   `json:"updated_at"`
+	ID          int32            `json:"id"`
+	Name        string           `json:"name"`
+	RegistryUrl string           `json:"registry_url"`
+	Username    pgtype.Text      `json:"username"`
+	Password    pgtype.Text      `json:"password"`
+	IsDefault   pgtype.Bool      `json:"is_default"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 }
