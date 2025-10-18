@@ -3,22 +3,26 @@ kind: StatefulSet
 metadata:
   creationTimestamp: null
   labels:
-    app: server
-  name: server
+    app: chart-paper-server
+  name: chart-paper-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: server
-  strategy: {}
+      app: chart-paper-server
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: server
+        app: chart-paper-server
     spec:
       containers:
-      - image: ashupednekar535/chartpaper-server
-        name: chartpaper-server
+      - image: ashupednekar535/chartpaper-chart-paper-server
+        name: chartpaper-chart-paper-server
+        env:
+          - name: "DATABASE_URL"
+            valueFrom:
+              secretKeyRef:
+                name: db-pguser-db
+                key: pgbouncer-uri
         resources: {}
-status: {}
