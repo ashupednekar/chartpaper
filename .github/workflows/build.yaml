@@ -185,7 +185,7 @@ jobs:
           git push
 
       - name: Helm registry login
-        run: echo ${{ secrets.GHCR_PAT }} | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Package Helm chart
         run: |
