@@ -3,22 +3,21 @@ kind: StatefulSet
 metadata:
   creationTimestamp: null
   labels:
-    app: ui
-  name: ui
+    app: chart-paper-ui
+  name: chart-paper-ui
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ui
-  strategy: {}
+      app: chart-paper-ui
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: ui
+        app: chart-paper-ui
     spec:
       containers:
       - image: ashupednekar535/chartpaper-ui
-        name: chartpaper-ui
+        name: chartpaper-chart-paper-ui
         resources: {}
 status: {}

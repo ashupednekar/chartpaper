@@ -12,13 +12,11 @@ COPY . .
 
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd
 
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-RUN apk --no-cache add ca-certificates sqlite
+WORKDIR /app
 
-WORKDIR /root/
-
-COPY --from=builder /app/main .
+COPY --from=builder /app/main server
 
 RUN mkdir -p /data
 
@@ -26,4 +24,4 @@ EXPOSE 8000
 
 ENV GIN_MODE=release
 
-CMD ["./main"]
+CMD ["/app/server"]

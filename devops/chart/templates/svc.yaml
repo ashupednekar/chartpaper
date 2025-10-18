@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-paper-ui
+  labels:
+    app: chart-paper-ui
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: chart-paper-ui
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-paper-server
+  labels:
+    app: chart-paper-server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: chart-paper-server
+
