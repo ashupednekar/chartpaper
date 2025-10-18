@@ -67,17 +67,23 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build and push Backend Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: backend/
-          file: devops/Dockerfile.backend
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.sha_short }}
-            ${{ env.IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Retag
+        run: |
+          docker pull ashupednekar535/chartpaper-server:5013271
+          docker tag ashupednekar535/chartpaper-server:5013271 ashupednekar535/chartpaper-server:${{.env.sha_short}}
+          docker push ashupednekar535/chartpaper-server:${{.env.sha_short}}
+
+      # - name: Build and push Backend Docker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: backend/
+      #     file: devops/Dockerfile.backend
+      #     push: true
+      #     tags: |
+      #       ${{ env.IMAGE_NAME }}:${{ env.sha_short }}
+      #       ${{ env.IMAGE_NAME }}:latest
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
 
       - name: Summary
         run: |
