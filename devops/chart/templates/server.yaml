@@ -6,7 +6,7 @@ metadata:
     app: chart-paper-server
   name: chart-paper-server
 spec:
-  replicas: 1
+  replicas: {{.Values.server.replicas}}
   selector:
     matchLabels:
       app: chart-paper-server
@@ -17,15 +17,17 @@ spec:
         app: chart-paper-server
     spec:
       containers:
-      - image: ashupednekar535/chartpaper-server
+      {{- $image := printf "%s/%s:%s" .Values.image.registry .Values.image.repository .Values.image.tag -}}
+      - image: {{$image}} 
         name: chartpaper-chart-paper-server
         env:
           - name: "DATABASE_URL"
             valueFrom:
               secretKeyRef:
-                name: db-pguser-db
-                key: pgbouncer-uri
+                name: {{.Values.server.db.secret}}
+                key: {{.Values.server.db.key}}
         resources: {}
+        {{- if .Values.server.probes.enabled}}
         livenessProbe:
           httpGet:
             path: /livez
@@ -38,3 +40,4 @@ spec:
             port: 8000
           initialDelaySeconds: 5
           periodSeconds: 30
+        {{- end}}

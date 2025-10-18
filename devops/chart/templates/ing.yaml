@@ -2,17 +2,17 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: chartpaper-ingress
-  namespace: apps
+  namespace: {{.Release.Namespace}}
   annotations:
     kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt
+    cert-manager.io/cluster-issuer: {{.Values.ingress.issuer}}
 spec:
   tls:
     - hosts:
-        - tools.ashudev.in
+        - {{.Values.ingress.host}}
       secretName: tools-tls
   rules:
-    - host: tools.ashudev.in
+    - host: {{.Values.ingress.host}}
       http:
         paths:
           - path: /chartpaper/api

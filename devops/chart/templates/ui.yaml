@@ -6,18 +6,20 @@ metadata:
     app: chart-paper-ui
   name: chart-paper-ui
 spec:
-  replicas: 1
+  replicas: {{.Values.ui.replicas}}
   selector:
     matchLabels:
       app: chart-paper-ui
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: chart-paper-ui
     spec:
       containers:
-      - image: ashupednekar535/chartpaper-ui
+      {{- $image := printf "%s/%s:%s" .Values.image.registry .Values.image.repository .Values.image.tag -}}
+      - image: {{$image}} 
         name: chartpaper-chart-paper-ui
         resources: {}
+        {{- if .Values.server.probes.enabled}}
+        {{- end}}
 status: {}
