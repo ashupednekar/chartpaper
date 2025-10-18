@@ -134,7 +134,7 @@ jobs:
       (needs.detect-changes.outputs.devops == 'true' ||
       (!contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
-      (needs.detct-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true')))
+      (needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true')))
     env:
       BACKEND_IMAGE: ashupednekar535/chartpaper
       FRONTEND_IMAGE: ashupednekar535/chartpaper-ui
