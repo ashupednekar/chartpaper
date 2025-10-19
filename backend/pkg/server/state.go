@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
-	"log"
+	"crypto/tls"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,6 +37,18 @@ func (s *Server) initializeState() error {
 		return fmt.Errorf("error parsing DATABASE_URL: %w", err)
 	}
 	config.MaxConns = 5
+	config.ConnConfig.TLSConfig = &tls.Config{}
+	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+	  _, err := c.Exec(ctx, "create schema if not exists chartpaper;")	
+		if err != nil{
+			return fmt.Errorf("error craeting db schema: %s", err)
+		}
+	  _, err = c.Exec(ctx, "set search_path to chartpaper;")	
+		if err != nil{
+			return fmt.Errorf("error setting search_path: %s", err)
+		}
+		return nil
+	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %w", err)
