@@ -3,7 +3,7 @@ server:
   image:
     registry: docker.io
     repository: ashupednekar535/chartpaper-server
-    tag: 8996eaa
+    tag: ea7ef53
   db:
     secret: db-pguser-db
     key: pgbouncer-uri
@@ -20,4 +20,3 @@ ui:
 ingress:
   host: tools.ashudev.in
   issuer: letsencrypt
-
