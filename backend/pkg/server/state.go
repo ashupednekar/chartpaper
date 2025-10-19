@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,12 +29,15 @@ func NewServer() (*Server, error) {
 }
 
 func (s *Server) initializeState() error {
+	databaseURL := os.Getenv("DATABASE_URL")
 	var err error
-	config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
+	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return fmt.Errorf("error parsing DATABASE_URL: %w", err)
 	}
-	config.ConnConfig.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	config.ConnConfig.TLSConfig = &tls.Config{
+		InsecureSkipVerify: false, 
+	}
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %w", err)
@@ -41,4 +45,8 @@ func (s *Server) initializeState() error {
 	s.db = pool
 	log.Printf("Database initialized\n")
 	return nil
+}
+
+func (s *Server) GetPool() *pgxpool.Pool {
+	return s.db
 }

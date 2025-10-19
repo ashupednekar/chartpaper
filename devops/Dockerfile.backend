@@ -25,4 +25,4 @@ EXPOSE 8000
 
 ENV GIN_MODE=release
 
-CMD ["/app/server"]
+CMD ["/app/server", "listen"]

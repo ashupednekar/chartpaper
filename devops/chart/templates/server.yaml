@@ -41,4 +41,10 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 30
         {{- end}}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /app/server
+                - migrate
 
