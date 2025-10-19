@@ -62,10 +62,8 @@ func main() {
 		},
 	}
 	migrateCmd.Flags().StringVarP(&databaseURL, "database-url", "d", "", "Database connection URL (defaults to DATABASE_URL environment variable)")
-
 	rootCmd.AddCommand(listenCmd)
 	rootCmd.AddCommand(migrateCmd)
-
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
