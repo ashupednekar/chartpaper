@@ -1,45 +1,45 @@
 package server
 
 import (
-	"database/sql"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Server struct{
-	port int
+type Server struct {
+	port   int
 	engine *gin.Engine
-	db *sql.DB
+	db     *pgxpool.Pool
 }
 
-func NewServer() (*Server, error){
+func NewServer() (*Server, error) {
 	s := Server{port: 8000, engine: gin.Default()}
-	if err := s.initializeState(); err != nil{
+	if err := s.initializeState(); err != nil {
 		return nil, err
 	}
-	if err := s.buildRoutes(); err != nil{
+	if err := s.buildRoutes(); err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
-func (s *Server) Start() error {
-	s.engine.Run(fmt.Sprintf(":%d", s.port))
-	return nil
-}
-
-func (s *Server) initializeState() error{
+func (s *Server) initializeState() error {
 	var err error
-	database, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
+	config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to open database: %v", err))
+		return fmt.Errorf("error parsing DATABASE_URL: %w", err)
 	}
-	defer database.Close()
-	s.db = database
+	config.ConnConfig.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		return fmt.Errorf("unable to connect to database: %w", err)
+	}
+	s.db = pool
 	log.Printf("Database initialized\n")
 	return nil
 }
-
 

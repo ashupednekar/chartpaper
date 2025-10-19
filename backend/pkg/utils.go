@@ -3,13 +3,15 @@ package pkg
 import (
 	"chartpaper/internal/db"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ashupednekar/compose/pkg/charts"
 	"github.com/ashupednekar/compose/pkg/spec"
@@ -67,7 +69,7 @@ func SafeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("Recovered from panic in Template: %v\n", r)
+				fmt.Printf("Recovered from panic in Template: %v\n", r)
 				err = fmt.Errorf("chart templating panicked: %v", r)
 			}
 		}()
@@ -100,12 +102,12 @@ func SafeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 	}
 	
 	if rel.Chart != nil && rel.Chart.Metadata != nil {
-		log.Printf("📋 Chart metadata found for %s\n", chartName)
-		log.Printf("  Name: %s\n", rel.Chart.Metadata.Name)
-		log.Printf("  Version: %s\n", rel.Chart.Metadata.Version)
-		log.Printf("  Type: %s\n", rel.Chart.Metadata.Type)
-		log.Printf("  Description: %s\n", rel.Chart.Metadata.Description)
-		log.Printf("  Dependencies pointer: %p\n", rel.Chart.Metadata.Dependencies)
+		fmt.Printf("📋 Chart metadata found for %s\n", chartName)
+		fmt.Printf("  Name: %s\n", rel.Chart.Metadata.Name)
+		fmt.Printf("  Version: %s\n", rel.Chart.Metadata.Version)
+		fmt.Printf("  Type: %s\n", rel.Chart.Metadata.Type)
+		fmt.Printf("  Description: %s\n", rel.Chart.Metadata.Description)
+		fmt.Printf("  Dependencies pointer: %p\n", rel.Chart.Metadata.Dependencies)
 		
 		chartInfo.Chart.Version = rel.Chart.Metadata.Version
 		if rel.Chart.Metadata.Description != "" {
@@ -117,24 +119,24 @@ func SafeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 		
 		
 		if rel.Chart.Metadata.Dependencies != nil {
-			log.Printf("📦 Dependencies array exists with length: %d\n", len(rel.Chart.Metadata.Dependencies))
+			fmt.Printf("📦 Dependencies array exists with length: %d\n", len(rel.Chart.Metadata.Dependencies))
 			if len(rel.Chart.Metadata.Dependencies) > 0 {
-				log.Printf("✅ Found %d dependencies in chart metadata\n", len(rel.Chart.Metadata.Dependencies))
+				fmt.Printf("✅ Found %d dependencies in chart metadata\n", len(rel.Chart.Metadata.Dependencies))
 				for i, dep := range rel.Chart.Metadata.Dependencies {
-					log.Printf("  Dependency %d: %+v\n", i+1, dep)
+					fmt.Printf("  Dependency %d: %+v\n", i+1, dep)
 					chartInfo.Chart.Dependencies = append(chartInfo.Chart.Dependencies, Dependency{
 						Name:       dep.Name,
 						Version:    dep.Version,
 						Repository: dep.Repository,
 						Condition:  dep.Condition,
 					})
-					log.Printf("  📦 Added dependency: %s v%s from %s\n", dep.Name, dep.Version, dep.Repository)
+					fmt.Printf("  📦 Added dependency: %s v%s from %s\n", dep.Name, dep.Version, dep.Repository)
 				}
 			} else {
-				log.Printf("ℹ️  Dependencies array is empty for chart %s\n", chartName)
+				fmt.Printf("ℹ️  Dependencies array is empty for chart %s\n", chartName)
 			}
 		} else {
-			log.Printf("ℹ️  No dependencies metadata found for chart %s\n", chartName)
+			fmt.Printf("ℹ️  No dependencies metadata found for chart %s\n", chartName)
 		}
 	} else {
 		log.Printf("⚠️  No chart metadata found for %s\n", chartName)
@@ -280,7 +282,7 @@ func extractManifestMetadata(manifest string) ManifestMetadata {
 	return metadata
 }
 
-func StoreChartInDB(database *sql.DB, chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.Chart, error) {
+func StoreChartInDB(database *pgxpool.Pool, chartInfo ChartInfo, apps []spec.App, chartURL string) (*db.Chart, error) {
 	ctx := context.Background()
 	queries := db.New(database)
 	
@@ -295,19 +297,13 @@ func StoreChartInDB(database *sql.DB, chartInfo ChartInfo, apps []spec.App, char
 		storedChart, err = queries.CreateChart(ctx, db.CreateChartParams{
 			Name:        chartInfo.Chart.Name,
 			Version:     chartInfo.Chart.Version,
-			Description: sql.NullString{String: chartInfo.Chart.Description, Valid: chartInfo.Chart.Description != ""},
 			Type:        chartInfo.Chart.Type,
 			ChartUrl:    chartURL,
-			ImageTag:    sql.NullString{String: chartInfo.ImageTag, Valid: chartInfo.ImageTag != "N/A"},
-			CanaryTag:   sql.NullString{String: chartInfo.CanaryTag, Valid: chartInfo.CanaryTag != "N/A"},
-			Manifest:    sql.NullString{String: "", Valid: false},
-			IsLatest:    sql.NullBool{Bool: true, Valid: true},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create chart: %v", err)
 		}
 		
-		// Update manifest metadata if available
 		if chartInfo.ManifestMetadata != nil {
 			err = UpdateChartManifestMetadata(database, int64(storedChart.ID), *chartInfo.ManifestMetadata)
 			if err != nil {
@@ -358,8 +354,8 @@ func StoreChartInDB(database *sql.DB, chartInfo ChartInfo, apps []spec.App, char
 			ChartID:           int32(storedChart.ID),
 			DependencyName:    dep.Name,
 			DependencyVersion: dep.Version,
-			Repository:        sql.NullString{String: dep.Repository, Valid: dep.Repository != ""},
-			ConditionField:    sql.NullString{String: dep.Condition, Valid: dep.Condition != ""},
+			Repository:        pgtype.Text{String: dep.Repository, Valid: dep.Repository != ""},
+			ConditionField:    pgtype.Text{String: dep.Condition, Valid: dep.Condition != ""},
 		})
 		if err != nil {
 			log.Printf("❌ ERROR: failed to store dependency %s: %v\n", dep.Name, err)
@@ -377,11 +373,11 @@ func StoreChartInDB(database *sql.DB, chartInfo ChartInfo, apps []spec.App, char
 		_, err = queries.CreateApp(ctx, db.CreateAppParams{
 			ChartID: int32(storedChart.ID),
 			Name:    app.Name,
-			Image:   sql.NullString{String: app.Image, Valid: app.Image != ""},
-			AppType: sql.NullString{String: app.Type, Valid: app.Type != ""},
-			Ports:   sql.NullString{String: string(portsJSON), Valid: len(app.Ports) > 0},
-			Configs: sql.NullString{String: string(configsJSON), Valid: len(app.Configs) > 0},
-			Mounts:  sql.NullString{String: string(mountsJSON), Valid: len(app.Mounts) > 0},
+			Image:   pgtype.Text{String: app.Image, Valid: app.Image != ""},
+			AppType: pgtype.Text{String: app.Type, Valid: app.Type != ""},
+			Ports:   pgtype.Text{String: string(portsJSON), Valid: len(app.Ports) > 0},
+			Configs: pgtype.Text{String: string(configsJSON), Valid: len(app.Configs) > 0},
+			Mounts:  pgtype.Text{String: string(mountsJSON), Valid: len(app.Mounts) > 0},
 		})
 		if err != nil {
 			log.Printf("Warning: failed to store app %s: %v\n", app.Name, err)
@@ -391,7 +387,7 @@ func StoreChartInDB(database *sql.DB, chartInfo ChartInfo, apps []spec.App, char
 	return &storedChart, nil
 }
 
-func UpdateChartManifestMetadata(database *sql.DB, chartID int64, metadata ManifestMetadata) error {
+func UpdateChartManifestMetadata(database *pgxpool.Pool, chartID int64, metadata ManifestMetadata) error {
 	ctx := context.Background()
 	
 	// Convert arrays to JSON
@@ -400,7 +396,7 @@ func UpdateChartManifestMetadata(database *sql.DB, chartID int64, metadata Manif
 	servicePortsJSON, _ := json.Marshal(metadata.ServicePorts)
 	
 	// Update the chart with manifest metadata
-	_, err := database.ExecContext(ctx, `
+	_, err := database.Exec(ctx, `
 		UPDATE charts 
 		SET ingress_paths = $1, 
 		    container_images = $2, 

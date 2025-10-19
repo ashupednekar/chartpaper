@@ -3,7 +3,6 @@ package server
 import (
 	"chartpaper/pkg"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,6 +13,7 @@ import (
 	"github.com/ashupednekar/compose/pkg/charts"
 	"github.com/ashupednekar/compose/pkg/spec"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (s *Server) getDockerConfig(c *gin.Context) {
@@ -102,7 +102,7 @@ func (s *Server) authenticate(c *gin.Context) {
 
 func (s *Server) getRegistryConfigs(c *gin.Context) {
 	ctx := context.Background()
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.Query(ctx, `
 		SELECT id, name, registry_url, username, password, is_default, created_at, updated_at 
 		FROM registry_configs 
 		ORDER BY is_default DESC, name ASC
@@ -116,7 +116,7 @@ func (s *Server) getRegistryConfigs(c *gin.Context) {
 	var configs []pkg.RegistryConfig
 	for rows.Next() {
 		var config pkg.RegistryConfig
-		var username, password sql.NullString
+		var username, password pgtype.Text
 		err := rows.Scan(&config.ID, &config.Name, &config.RegistryURL, &username, 
 			&password, &config.IsDefault, &config.CreatedAt, &config.UpdatedAt)
 		if err != nil {
@@ -149,14 +149,14 @@ func (s *Server) createRegistryConfig(c *gin.Context) {
 	
 	
 	if config.IsDefault {
-		_, err := s.db.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE")
+_, err := s.db.Exec(ctx, "UPDATE registry_configs SET is_default = FALSE")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
 			return
 		}
 	}
 	
-	result, err := s.db.ExecContext(ctx, `
+	_, err := s.db.Exec(ctx, `
 		INSERT INTO registry_configs (name, registry_url, username, password, is_default) 
 		VALUES ($1, $2, $3, $4, $5)
 	`, config.Name, config.RegistryURL, config.Username, config.Password, config.IsDefault)
@@ -166,8 +166,7 @@ func (s *Server) createRegistryConfig(c *gin.Context) {
 		return
 	}
 	
-	id, _ := result.LastInsertId()
-	config.ID = id
+	
 	
 	c.JSON(http.StatusCreated, config)
 }
@@ -185,14 +184,14 @@ func (s *Server) updateRegistryConfig(c *gin.Context) {
 	
 	
 	if config.IsDefault {
-		_, err := s.db.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE WHERE id != $1", id)
+		_, err := s.db.Exec(ctx, "UPDATE registry_configs SET is_default = FALSE WHERE id != $1", id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
 			return
 		}
 	}
 	
-	_, err := s.db.ExecContext(ctx, `
+	_, err := s.db.Exec(ctx, `
 		UPDATE registry_configs 
 		SET name = $1, registry_url = $2, username = $3, password = $4, is_default = $5, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $6
@@ -211,7 +210,7 @@ func (s *Server) deleteRegistryConfig(c *gin.Context) {
 	ctx := context.Background()
 	id := c.Param("id")
 	
-	_, err := s.db.ExecContext(ctx, "DELETE FROM registry_configs WHERE id = $1", id)
+	_, err := s.db.Exec(ctx, "DELETE FROM registry_configs WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -226,14 +225,14 @@ func (s *Server) setDefaultRegistry(c *gin.Context) {
 	id := c.Param("id")
 	
 	
-	_, err := s.db.ExecContext(ctx, "UPDATE registry_configs SET is_default = FALSE")
+	_, err := s.db.Exec(ctx, "UPDATE registry_configs SET is_default = FALSE")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update existing defaults"})
 		return
 	}
 	
 	
-	_, err = s.db.ExecContext(ctx, "UPDATE registry_configs SET is_default = TRUE WHERE id = $1", id)
+	_, err = s.db.Exec(ctx, "UPDATE registry_configs SET is_default = TRUE WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

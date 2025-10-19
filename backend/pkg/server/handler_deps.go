@@ -5,7 +5,6 @@ import (
 	"chartpaper/pkg"
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/ashupednekar/compose/pkg/spec"
@@ -14,7 +13,7 @@ import (
 
 func (s *Server) fetchChartDependencies(c *gin.Context) {
 	queries := db.New(s.db)
-	log.Printf("=== FETCHING CHART DEPENDENCIES ===\n")
+	fmt.Printf("=== FETCHING CHART DEPENDENCIES ===\n")
 	chartName := c.Param("name")
 	ctx := context.Background()
 
@@ -32,7 +31,7 @@ func (s *Server) fetchChartDependencies(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Found %d dependencies for chart %s\n", len(dependencies), chartName)
+	fmt.Printf("Found %d dependencies for chart %s\n", len(dependencies), chartName)
 
 
 	var fetchedCharts []pkg.ChartInfo
@@ -42,7 +41,7 @@ func (s *Server) fetchChartDependencies(c *gin.Context) {
 		_, err := queries.GetChart(ctx, dep.DependencyName)
 		if err != nil {
 
-			log.Printf("Attempting to fetch dependency: %s\n", dep.DependencyName)
+			fmt.Printf("Attempting to fetch dependency: %s\n", dep.DependencyName)
 
 
 			registries := []string{
@@ -54,10 +53,10 @@ func (s *Server) fetchChartDependencies(c *gin.Context) {
 				chartInfo, err := pkg.TryFetchChart(registryURL, dep.DependencyName, dep.DependencyVersion)
 				if err == nil {
 
-					_, storeErr := storeChartInDB(s.db, *chartInfo, []spec.App{}, registryURL)
+					_, storeErr := pkg.StoreChartInDB(s.db, *chartInfo, []spec.App{}, registryURL)
 					if storeErr == nil {
 						fetchedCharts = append(fetchedCharts, *chartInfo)
-						log.Printf("Successfully fetched and stored: %s\n", dep.DependencyName)
+						fmt.Printf("Successfully fetched and stored: %s\n", dep.DependencyName)
 						break
 					}
 				}
@@ -78,11 +77,11 @@ func (s *Server) getChartDependencies(c *gin.Context) {
 	ctx := context.Background()
 	chartName := c.Param("name")
 	
-	log.Printf("🔍 Getting dependencies for chart: %s\n", chartName)
+	fmt.Printf("🔍 Getting dependencies for chart: %s\n", chartName)
 	
 	chart, err := queries.GetChart(ctx, chartName)
 	if err != nil {
-		log.Printf("❌ Chart not found: %s\n", chartName)
+		fmt.Printf("❌ Chart not found: %s\n", chartName)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "Chart not found",
 			"chart": chartName,
@@ -92,13 +91,13 @@ func (s *Server) getChartDependencies(c *gin.Context) {
 	
 	dependencies, err := queries.GetChartDependencies(ctx, int32(chart.ID))
 	if err != nil {
-		log.Printf("❌ Database error getting dependencies: %v\n", err)
+		fmt.Printf("❌ Database error getting dependencies: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	
 	if len(dependencies) == 0 {
-		log.Printf("ℹ️  Chart %s has no dependencies\n", chartName)
+		fmt.Printf("ℹ️  Chart %s has no dependencies\n", chartName)
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Chart has no dependencies",
 			"chart": chartName,
@@ -108,7 +107,7 @@ func (s *Server) getChartDependencies(c *gin.Context) {
 		return
 	}
 	
-	log.Printf("✅ Found %d dependencies for chart %s\n", len(dependencies), chartName)
+	fmt.Printf("✅ Found %d dependencies for chart %s\n", len(dependencies), chartName)
 	c.JSON(http.StatusOK, gin.H{
 		"chart": chartName,
 		"dependencies": dependencies,

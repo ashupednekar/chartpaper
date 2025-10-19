@@ -4,14 +4,12 @@ import (
 	"chartpaper/internal/db"
 	"chartpaper/pkg"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/ashupednekar/compose/pkg/charts"
 	"github.com/ashupednekar/compose/pkg/spec"
@@ -21,16 +19,16 @@ import (
 func (s *Server) fetchChart(c *gin.Context) {
 	var req pkg.ChartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("❌ Invalid request body: %v\n", err)
+		log.Printf("❌ Invalid request body: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
 		return
 	}
 	
-	fmt.Printf("🚀 Fetching chart: %s\n", req.ChartURL)
+	log.Printf("🚀 Fetching chart: %s\n", req.ChartURL)
 	
 	chartUtils, err := charts.NewChartUtils()
 	if err != nil {
-		fmt.Printf("❌ Failed to initialize chart utils: %v\n", err)
+		log.Printf("❌ Failed to initialize chart utils: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize chart utils"})
 		return
 	}
@@ -45,14 +43,14 @@ func (s *Server) fetchChart(c *gin.Context) {
 				Registry: config.Registry,
 			}
 			if authErr := chartUtils.Authenticate(authInfo); authErr != nil {
-				fmt.Printf("⚠️  Authentication warning: %v\n", authErr)
+				log.Printf("⚠️  Authentication warning: %v\n", authErr)
 			}
 		}
 	}
 	
 	chartInfo, apps, err := pkg.SafeParseChart(chartUtils, req)
 	if err != nil {
-		fmt.Printf("❌ Failed to fetch chart %s: %v\n", req.ChartURL, err)
+		log.Printf("❌ Failed to fetch chart %s: %v\n", req.ChartURL, err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to fetch chart",
 			"details": err.Error(),
@@ -61,14 +59,14 @@ func (s *Server) fetchChart(c *gin.Context) {
 		return
 	}
 	
-	fmt.Printf("✅ Successfully parsed chart: %s v%s\n", chartInfo.Chart.Name, chartInfo.Chart.Version)
+	log.Printf("✅ Successfully parsed chart: %s v%s\n", chartInfo.Chart.Name, chartInfo.Chart.Version)
 	
-	storedChart, err := storeChartInDB(s.db, chartInfo, apps, req.ChartURL)
+	storedChart, err := pkg.StoreChartInDB(s.db, chartInfo, apps, req.ChartURL)
 	if err != nil {
-		fmt.Printf("⚠️  Warning: failed to store chart in database: %v\n", err)
+		log.Printf("⚠️  Warning: failed to store chart in database: %v\n", err)
 		// Continue anyway, return the chart info
 	} else {
-		fmt.Printf("✅ Chart stored in database with ID: %d\n", storedChart.ID)
+		log.Printf("✅ Chart stored in database with ID: %d\n", storedChart.ID)
 	}
 	
 	response := map[string]interface{}{
@@ -106,7 +104,7 @@ func (s *Server) getStoredCharts(c *gin.Context) {
 	ctx := context.Background()
 	
 	log.Printf("Testing database connection...\n")
-	if err := s.db.Ping(); err != nil {
+	if err := s.db.Ping(ctx); err != nil {
 		log.Printf("❌ Database connection failed: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection failed"})
 		return
@@ -139,19 +137,30 @@ func (s *Server) getStoredCharts(c *gin.Context) {
 		// Convert dependencies to Chart format
 		var chartDeps []pkg.Dependency
 		for _, dep := range dependencies {
+			var repo, cond string
+			if dep.Repository.Valid {
+				repo = dep.Repository.String
+			}
+			if dep.ConditionField.Valid {
+				cond = dep.ConditionField.String
+			}
 			chartDeps = append(chartDeps, pkg.Dependency{
 				Name:       dep.DependencyName,
 				Version:    dep.DependencyVersion,
-				Repository: dep.Repository.String,
-				Condition:  dep.ConditionField.String,
+				Repository: repo,
+				Condition:  cond,
 			})
 		}
 		
+		var desc string
+		if chart.Description.Valid {
+			desc = chart.Description.String
+		}
 		chartInfo := pkg.ChartInfo{
 			Chart: pkg.Chart{
 				Name:         chart.Name,
 				Version:      chart.Version,
-				Description:  chart.Description.String,
+				Description:  desc,
 				Type:         chart.Type,
 				Dependencies: chartDeps,
 			},
@@ -187,11 +196,15 @@ func (s *Server) getStoredChartInfo(c *gin.Context) {
 		return
 	}
 	
+	var desc string
+	if chart.Description.Valid {
+		desc = chart.Description.String
+	}
 	chartInfo := pkg.ChartInfo{
 		Chart: pkg.Chart{
 			Name:        chart.Name,
 			Version:     chart.Version,
-			Description: chart.Description.String,
+			Description: desc,
 			Type:        chart.Type,
 		},
 		ImageTag:  "N/A",
@@ -294,111 +307,3 @@ func (s *Server) switchChartVersion(c *gin.Context) {
 	})
 }
 
-
-func storeChartInDB(database *sql.DB, chartInfo pkg.ChartInfo, apps []spec.App, chartURL string) (*db.Chart, error) {
-	ctx := context.Background()
-	queries := db.New(database)
-	existingChart, err := queries.GetChart(ctx, chartInfo.Chart.Name)
-	
-	var storedChart db.Chart
-	
-	if err != nil {
-		fmt.Printf("📝 Creating new chart: %s\n", chartInfo.Chart.Name)
-		storedChart, err = queries.CreateChart(ctx, db.CreateChartParams{
-			Name:        chartInfo.Chart.Name,
-			Version:     chartInfo.Chart.Version,
-			Description: sql.NullString{String: chartInfo.Chart.Description, Valid: chartInfo.Chart.Description != ""},
-			Type:        chartInfo.Chart.Type,
-			ChartUrl:    chartURL,
-			ImageTag:    sql.NullString{String: chartInfo.ImageTag, Valid: chartInfo.ImageTag != "N/A"},
-			CanaryTag:   sql.NullString{String: chartInfo.CanaryTag, Valid: chartInfo.CanaryTag != "N/A"},
-			Manifest:    sql.NullString{String: "", Valid: false},
-			IsLatest:    sql.NullBool{Bool: true, Valid: true},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create chart: %v", err)
-		}
-		
-		// Update manifest metadata if available
-		if chartInfo.ManifestMetadata != nil {
-			err = pkg.UpdateChartManifestMetadata(database, int64(storedChart.ID), *chartInfo.ManifestMetadata)
-			if err != nil {
-				fmt.Printf("⚠️  Warning: failed to update manifest metadata: %v\n", err)
-			}
-		}
-	} else {
-		// Chart exists, use the existing one
-		fmt.Printf("📝 Using existing chart: %s (ID: %d)\n", chartInfo.Chart.Name, existingChart.ID)
-		storedChart = existingChart
-		
-		// Clear existing dependencies
-		queries.DeleteChartDependencies(ctx, int32(storedChart.ID))
-	}
-	
-	fmt.Printf("🚀 REACHED DEPENDENCY STORAGE SECTION!\n")
-	fmt.Printf("🔍 DEBUG: storedChart pointer: %p\n", &storedChart)
-	fmt.Printf("🔍 DEBUG: storedChart ID: %d\n", storedChart.ID)
-	
-	// Store dependencies
-	fmt.Printf("🔍 DEBUG: About to store %d dependencies for chart %s (ID: %d)\n", len(chartInfo.Chart.Dependencies), chartInfo.Chart.Name, storedChart.ID)
-	fmt.Printf("🔍 DEBUG: Dependencies array: %+v\n", chartInfo.Chart.Dependencies)
-	for i, dep := range chartInfo.Chart.Dependencies {
-		fmt.Printf("🔍 DEBUG: Processing dependency %d: %+v\n", i+1, dep)
-		
-		// Try to fetch dependency chart info to get image/canary tags
-		var depImageTag, depCanaryTag string = "N/A", "N/A"
-		
-		if dep.Repository != "" {
-			// Try to fetch the dependency chart to get its image tags
-			depChartURL := dep.Repository
-			if !strings.HasSuffix(depChartURL, "/"+dep.Name) {
-				depChartURL = depChartURL + "/" + dep.Name
-			}
-			
-			fmt.Printf("🔍 Attempting to fetch dependency info from: %s\n", depChartURL)
-			if depChartInfo, depErr := pkg.TryFetchChart(depChartURL, dep.Name, dep.Version); depErr == nil {
-				depImageTag = depChartInfo.ImageTag
-				depCanaryTag = depChartInfo.CanaryTag
-				fmt.Printf("✅ Got dependency tags: image=%s, canary=%s\n", depImageTag, depCanaryTag)
-			} else {
-				fmt.Printf("⚠️ Could not fetch dependency info: %v\n", depErr)
-			}
-		}
-		
-		// For now, store dependency without tags until we can update the schema properly
-		depResult, err := queries.CreateDependency(ctx, db.CreateDependencyParams{
-			ChartID:           int32(storedChart.ID),
-			DependencyName:    dep.Name,
-			DependencyVersion: dep.Version,
-			Repository:        sql.NullString{String: dep.Repository, Valid: dep.Repository != ""},
-			ConditionField:    sql.NullString{String: dep.Condition, Valid: dep.Condition != ""},
-		})
-		if err != nil {
-			fmt.Printf("❌ ERROR: failed to store dependency %s: %v\n", dep.Name, err)
-		} else {
-			fmt.Printf("✅ SUCCESS: Stored dependency: %s v%s (ID: %d)\n", dep.Name, dep.Version, depResult.ID)
-		}
-	}
-
-	// Store apps
-	for _, app := range apps {
-		portsJSON, _ := json.Marshal(app.Ports)
-		configsJSON, _ := json.Marshal(app.Configs)
-		mountsJSON, _ := json.Marshal(app.Mounts)
-		
-		_, err = queries.CreateApp(ctx, db.CreateAppParams{
-			ChartID: int32(storedChart.ID),
-			Name:    app.Name,
-			Image:   sql.NullString{String: app.Image, Valid: app.Image != ""},
-			AppType: sql.NullString{String: app.Type, Valid: app.Type != ""},
-			Ports:   sql.NullString{String: string(portsJSON), Valid: len(app.Ports) > 0},
-			Configs: sql.NullString{String: string(configsJSON), Valid: len(app.Configs) > 0},
-			Mounts:  sql.NullString{String: string(mountsJSON), Valid: len(app.Mounts) > 0},
-		})
-		if err != nil {
-			fmt.Printf("Warning: failed to store app %s: %v\n", app.Name, err)
-		}
-	}
-	
-	return &storedChart, nil
-}
