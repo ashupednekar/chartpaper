@@ -37,7 +37,7 @@ func (s *Server) initializeState() error {
 		return fmt.Errorf("error parsing DATABASE_URL: %w", err)
 	}
 	config.MaxConns = 5
-	config.ConnConfig.TLSConfig = &tls.Config{}
+	config.ConnConfig.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
 	  _, err := c.Exec(ctx, "create schema if not exists chartpaper;")	
 		if err != nil{
