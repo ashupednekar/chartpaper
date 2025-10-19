@@ -42,4 +42,3 @@ func (s *Server) initializeState() error {
 	log.Printf("Database initialized\n")
 	return nil
 }
-
