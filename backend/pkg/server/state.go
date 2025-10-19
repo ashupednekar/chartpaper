@@ -39,7 +39,7 @@ func (s *Server) initializeState() error {
 	config.MaxConns = 5
 	config.ConnConfig.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-	  _, err := c.Exec(ctx, "create schema if not exists chartpaper;")	
+	  _, err := c.Exec(ctx, "create schema if not exists chartpaper;") 	
 		if err != nil{
 			return fmt.Errorf("error craeting db schema: %s", err)
 		}
