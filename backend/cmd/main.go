@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
 )
@@ -15,10 +14,6 @@ var (
 )
 
 func main() {
-	if err := godotenv.Load("config.env"); err != nil {
-		log.Printf("Error loading config.env file: %v", err)
-	}
-
 	rootCmd := &cobra.Command{
 		Use:   "chartpaper",
 		Short: "Chartpaper API server and CLI",
@@ -62,6 +57,7 @@ func main() {
 		},
 	}
 	migrateCmd.Flags().StringVarP(&databaseURL, "database-url", "d", "", "Database connection URL (defaults to DATABASE_URL environment variable)")
+
 	rootCmd.AddCommand(listenCmd)
 	rootCmd.AddCommand(migrateCmd)
 	if err := rootCmd.Execute(); err != nil {
