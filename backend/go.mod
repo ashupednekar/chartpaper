@@ -7,7 +7,6 @@ require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/spf13/cobra v1.10.1
 	helm.sh/helm/v3 v3.19.0
