@@ -3,7 +3,7 @@ server:
   image:
     registry: docker.io
     repository: ashupednekar535/chartpaper-server
-    tag: 7c35977
+    tag: dedc17d
   db:
     secret: db-pguser-db
     key: pgbouncer-uri
