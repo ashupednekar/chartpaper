@@ -20,3 +20,4 @@ ui:
 ingress:
   host: tools.ashudev.in
   issuer: letsencrypt
+
