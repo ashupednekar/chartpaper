@@ -8,7 +8,7 @@ server:
     secret: db-pguser-db
     key: pgbouncer-uri
   probes:
-    enabled: false
+    enabled: true
 ui:
   replicas: 1
   image:
