@@ -1,9 +1,5 @@
 package server
 
-import (
-	"log"
-)
-
 func (s *Server) buildRoutes() error{
 	s.engine.GET("/healthz", s.healthCheck)
 	s.engine.GET("/livez", s.livenessCheck)
@@ -27,18 +23,5 @@ func (s *Server) buildRoutes() error{
 		api.DELETE("/registry-configs/:id", s.deleteRegistryConfig)
 		api.POST("/registry-configs/:id/set-default", s.setDefaultRegistry)
 	}
-	
-	log.Printf("=== API ROUTES REGISTERED ===\n")
-	log.Printf("GET /api/health\n")
-	log.Printf("GET /api/charts (DATABASE ONLY - NO DIRECTORY SCANNING)\n")
-	log.Printf("GET /api/charts/:name\n")
-	log.Printf("GET /api/charts/:name/dependencies\n")
-	log.Printf("GET /api/docker-config\n")
-	log.Printf("POST /api/fetch-chart\n")
-	log.Printf("POST /api/authenticate\n")
-	log.Printf("DELETE /api/charts/:name\n")
-
-	log.Printf("=== SERVER STARTING ON :8000 ===\n")
-	log.Printf("NO DIRECTORY SCANNING - OCI REGISTRY ONLY\n")
 	return nil
 }

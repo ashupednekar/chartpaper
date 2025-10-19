@@ -2,9 +2,8 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
 	"log"
+	"fmt"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -35,9 +34,7 @@ func (s *Server) initializeState() error {
 	if err != nil {
 		return fmt.Errorf("error parsing DATABASE_URL: %w", err)
 	}
-	config.ConnConfig.TLSConfig = &tls.Config{
-		InsecureSkipVerify: false, 
-	}
+	config.MaxConns = 5
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %w", err)
