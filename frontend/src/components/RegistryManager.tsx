@@ -198,7 +198,7 @@ export function RegistryManager() {
     setError(null)
     
     try {
-      const response = await fetch('/api/registry-configs')
+      const response = await fetch('/chartpaper/api/registry-configs')
       if (response.ok) {
         const data = await response.json()
         setConfigs(data)
@@ -217,7 +217,7 @@ export function RegistryManager() {
     setError(null)
     
     try {
-      const response = await fetch('/api/registry-configs', {
+      const response = await fetch('/chartpaper/api/registry-configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -245,7 +245,7 @@ export function RegistryManager() {
     setError(null)
     
     try {
-      const response = await fetch(`/api/registry-configs/${editingConfig.id}`, {
+      const response = await fetch(`/chartpaper/api/registry-configs/${editingConfig.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -273,7 +273,7 @@ export function RegistryManager() {
     setError(null)
     
     try {
-      const response = await fetch(`/api/registry-configs/${id}`, {
+      const response = await fetch(`/chartpaper/api/registry-configs/${id}`, {
         method: 'DELETE'
       })
       
@@ -294,7 +294,7 @@ export function RegistryManager() {
     setError(null)
     
     try {
-      const response = await fetch(`/api/registry-configs/${id}/set-default`, {
+      const response = await fetch(`/chartpaper/api/registry-configs/${id}/set-default`, {
         method: 'POST'
       })
       
