@@ -103,7 +103,7 @@ func (s *Server) authenticate(c *gin.Context) {
 func (s *Server) getRegistryConfigs(c *gin.Context) {
 	ctx := context.Background()
 	rows, err := s.db.Query(ctx, `
-		SELECT id, name, registry_url, username, password, is_default, created_at, updated_at 
+	SELECT id, name, registry_url, username, password, is_default, created_at::text, updated_at::text
 		FROM registry_configs 
 		ORDER BY is_default DESC, name ASC
 	`)
