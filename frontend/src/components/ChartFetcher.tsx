@@ -8,7 +8,7 @@ import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
 import { Label } from './ui/label'
 import { Download, Shield, AlertCircle, CheckCircle, Sparkles, Zap, Database } from 'lucide-react'
-
+ 
 interface ChartFetcherProps {
   onChartFetched: (chart: ChartInfo) => void
 }
