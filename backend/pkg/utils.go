@@ -17,7 +17,7 @@ import (
 )
 
 func TryFetchChart(database *pgxpool.Pool, chartURL, name, version string) (*ChartInfo, error) {
-	chartUtils, err := charts.NewChartUtils(true)
+	chartUtils, err := charts.NewChartUtils(true) 
 	if err != nil {
 		return nil, err
 	}
