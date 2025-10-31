@@ -21,7 +21,6 @@ func TryFetchChart(database *pgxpool.Pool, chartURL, name, version string) (*Cha
 	if err != nil {
 		return nil, err
 	}
-
 	queries := db.New(database)
 	config, err := queries.GetDefaultRegistryConfig(context.Background())
 	if err == nil {
