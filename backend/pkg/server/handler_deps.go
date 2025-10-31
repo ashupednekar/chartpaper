@@ -50,7 +50,7 @@ func (s *Server) fetchChartDependencies(c *gin.Context) {
 			}
 
 			for _, registryURL := range registries {
-				chartInfo, err := pkg.TryFetchChart(registryURL, dep.DependencyName, dep.DependencyVersion)
+				chartInfo, err := pkg.TryFetchChart(s.db, registryURL, dep.DependencyName, dep.DependencyVersion)
 				if err == nil {
 
 					_, storeErr := pkg.StoreChartInDB(s.db, *chartInfo, []spec.App{}, registryURL)

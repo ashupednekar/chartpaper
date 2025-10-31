@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,25 +16,21 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 )
 
-func TryFetchChart(chartURL, name, version string) (*ChartInfo, error) {
-	
+func TryFetchChart(database *pgxpool.Pool, chartURL, name, version string) (*ChartInfo, error) {
 	chartUtils, err := charts.NewChartUtils()
 	if err != nil {
 		return nil, err
 	}
-	
-	
-	configPath := filepath.Join(os.Getenv("HOME"), ".config", "compose", "config.json")
-	if data, err := os.ReadFile(configPath); err == nil {
-		var config DockerConfig
-		if err := json.Unmarshal(data, &config); err == nil {
-			authInfo := &spec.AuthInfo{
-				Username: config.Username,
-				Password: config.Password,
-				Registry: config.Registry,
-			}
-			chartUtils.Authenticate(authInfo)
+
+	queries := db.New(database)
+	config, err := queries.GetDefaultRegistryConfig(context.Background())
+	if err == nil {
+		authInfo := &spec.AuthInfo{
+			Username: config.Username.String,
+			Password: config.Password.String,
+			Registry: config.RegistryUrl,
 		}
+		chartUtils.Authenticate(authInfo)
 	}
 	
 	
@@ -340,7 +334,7 @@ func StoreChartInDB(database *pgxpool.Pool, chartInfo ChartInfo, apps []spec.App
 			}
 			
 			log.Printf("🔍 Attempting to fetch dependency info from: %s\n", depChartURL)
-			if depChartInfo, depErr := TryFetchChart(depChartURL, dep.Name, dep.Version); depErr == nil {
+			if depChartInfo, depErr := TryFetchChart(database, depChartURL, dep.Name, dep.Version); depErr == nil {
 				depImageTag = depChartInfo.ImageTag
 				depCanaryTag = depChartInfo.CanaryTag
 				log.Printf("✅ Got dependency tags: image=%s, canary=%s\n", depImageTag, depCanaryTag)

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"chartpaper/internal/db"
 	"chartpaper/pkg"
 	"context"
 	"encoding/json"
@@ -41,62 +42,39 @@ func (s *Server) getDockerConfig(c *gin.Context) {
 }
 
 func (s *Server) authenticate(c *gin.Context) {
-	
-	configPath := filepath.Join(os.Getenv("HOME"), ".config", "compose", "config.json")
-	
-	log.Printf("Looking for config at: %s\n", configPath)
-	
-	data, err := os.ReadFile(configPath)
+	queries := db.New(s.db)
+	config, err := queries.GetDefaultRegistryConfig(context.Background())
 	if err != nil {
-		log.Printf("Config read error: %v\n", err)
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Docker config not found", 
-			"path": configPath,
-			"details": err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default registry config"})
 		return
 	}
-	
-	log.Printf("Config data: %s\n", string(data))
-	
-	var config pkg.DockerConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		log.Printf("Config parse error: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to parse docker config",
-			"details": err.Error(),
-		})
-		return
-	}
-	
-	log.Printf("Parsed config: Username=%s, Registry=%s\n", config.Username, config.Registry)
-	
+
 	chartUtils, err := charts.NewChartUtils()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize chart utils"})
 		return
 	}
-	
+
 	authInfo := &spec.AuthInfo{
-		Username: config.Username,
-		Password: config.Password,
-		Registry: config.Registry,
+		Username: config.Username.String,
+		Password: config.Password.String,
+		Registry: config.RegistryUrl,
 	}
-	
+
 	if err := chartUtils.Authenticate(authInfo); err != nil {
 		log.Printf("Authentication error: %v\n", err)
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": fmt.Sprintf("Authentication failed: %v", err),
-			"registry": config.Registry,
-			"username": config.Username,
+			"error":    fmt.Sprintf("Authentication failed: %v", err),
+			"registry": config.RegistryUrl,
+			"username": config.Username.String,
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Authentication successful",
-		"registry": config.Registry,
-		"username": config.Username,
+		"message":  "Authentication successful",
+		"registry": config.RegistryUrl,
+		"username": config.Username.String,
 	})
 }
 
