@@ -5,6 +5,7 @@ WORKDIR /app
 
 COPY go.mod .
 
+RUN echo "cloning compose..."
 RUN git clone https://github.com/ashupednekar/compose ../temp-compose
 RUN go mod download
 
