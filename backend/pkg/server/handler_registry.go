@@ -49,7 +49,7 @@ func (s *Server) authenticate(c *gin.Context) {
 		return
 	}
 
-	chartUtils, err := charts.NewChartUtils()
+	chartUtils, err := charts.NewChartUtils(true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize chart utils"})
 		return

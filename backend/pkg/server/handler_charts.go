@@ -26,7 +26,7 @@ func (s *Server) fetchChart(c *gin.Context) {
 	
 	log.Printf("🚀 Fetching chart: %s\n", req.ChartURL)
 	
-	chartUtils, err := charts.NewChartUtils()
+	chartUtils, err := charts.NewChartUtils(true)
 	if err != nil {
 		log.Printf("❌ Failed to initialize chart utils: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize chart utils"})
