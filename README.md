@@ -40,4 +40,3 @@ npm run dev
 - `GET /api/charts` - List all charts
 - `GET /api/charts/:name/dependencies` - Get chart dependencies
 - `GET /api/charts/:name/versions` - Get version info and image tags
-
