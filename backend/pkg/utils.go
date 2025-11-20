@@ -72,6 +72,9 @@ func SafeParseChart(chartUtils *charts.ChartUtils, req ChartRequest) (ChartInfo,
 	if err != nil {
 		return ChartInfo{}, nil, fmt.Errorf("chart templating failed: %v", err)
 	}
+	if rel == nil {
+		return ChartInfo{}, nil, fmt.Errorf("chart templating returned a nil release")
+	}
 	
 	if rel == nil {
 		return ChartInfo{}, nil, fmt.Errorf("chart templating returned nil release")
@@ -339,6 +342,7 @@ func StoreChartInDB(database *pgxpool.Pool, chartInfo ChartInfo, apps []spec.App
 				log.Printf("✅ Got dependency tags: image=%s, canary=%s\n", depImageTag, depCanaryTag)
 			} else {
 				log.Printf("⚠️ Could not fetch dependency info: %v\n", depErr)
+				return nil, fmt.Errorf("failed to fetch dependency %s: %v", dep.Name, depErr)
 			}
 		}
 		

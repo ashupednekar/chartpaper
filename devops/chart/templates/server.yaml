@@ -1,6 +1,6 @@
 {{- $image := printf "%s/%s:%s" .Values.server.image.registry .Values.server.image.repository .Values.server.image.tag -}}
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment 
 metadata:
   creationTimestamp: null
   labels:
